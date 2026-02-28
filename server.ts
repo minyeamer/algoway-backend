@@ -1,13 +1,13 @@
-const app = require('./src/app');
-const logger = require('./src/utils/logger');
+import app from './src/app';
+import logger from './src/utils/logger';
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // 서버 시작
 const server = app.listen(PORT, () => {
-  logger.info(`🚀 Server is running on port ${PORT} in ${NODE_ENV} mode`);
-  logger.info(`📍 Health check: http://localhost:${PORT}/health`);
+  logger.info(`Server is running on port ${PORT} in ${NODE_ENV} mode`);
+  logger.info(`Health check: http://localhost:${PORT}/health`);
 });
 
 // Graceful shutdown

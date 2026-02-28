@@ -109,10 +109,10 @@ git checkout dev
 - 형식: 날짜 + 제목 + 배경 + 작업 내용 + 설계 결정 + 다음 단계
 - indent 2칸 단위로 작성
 
-### testing-*.md
+### testing/
 
 - 각 API 도메인별 테스팅 가이드 작성 필수
-  - `docs/testing-auth.md`, `testing-users.md`, `testing-pods.md` ...
+  - `docs/testing/01-auth.md`, `02-users.md`, `03-pods.md` ... (순번-도메인 형식)
 - lookflex/docs/testing.md 형식 참고
 
 ### 기타

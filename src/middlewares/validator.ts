@@ -1,26 +1,32 @@
-const { body, param, query, validationResult } = require('express-validator');
-const { errorResponse } = require('../utils/response');
-const { ERROR_CODES } = require('../config/constants');
+import { body, param, query, validationResult, ValidationChain } from 'express-validator';
+import { Request, Response, NextFunction } from 'express';
+import { errorResponse } from '../utils/response';
+import { ERROR_CODES } from '../config/constants';
+
+type ValidationMiddleware = ValidationChain | ((req: Request, res: Response, next: NextFunction) => void);
 
 /**
  * Validation 결과 체크 미들웨어
  */
-const validate = (req, res, next) => {
+export const validate = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
-  
+
   if (!errors.isEmpty()) {
-    const formattedErrors = {};
-    errors.array().forEach(error => {
-      formattedErrors[error.path] = error.msg;
+    const formattedErrors: Record<string, string> = {};
+    errors.array().forEach((error) => {
+      if ('path' in error) {
+        formattedErrors[error.path as string] = error.msg;
+      }
     });
 
-    return errorResponse(
+    errorResponse(
       res,
       ERROR_CODES.VALIDATION_ERROR,
       '입력 데이터 검증에 실패했습니다.',
       400,
       { fields: formattedErrors }
     );
+    return;
   }
 
   next();
@@ -29,7 +35,7 @@ const validate = (req, res, next) => {
 /**
  * 회원가입 Validation
  */
-const signupValidation = [
+export const signupValidation: ValidationMiddleware[] = [
   body('email')
     .isEmail()
     .withMessage('올바른 이메일 형식이 아닙니다.')
@@ -45,27 +51,25 @@ const signupValidation = [
     .withMessage('닉네임은 2~50자 사이여야 합니다.')
     .matches(/^[a-zA-Z0-9가-힣_]+$/)
     .withMessage('닉네임은 한글, 영문, 숫자, 언더스코어만 사용 가능합니다.'),
-  validate
+  validate,
 ];
 
 /**
  * 로그인 Validation
  */
-const loginValidation = [
+export const loginValidation: ValidationMiddleware[] = [
   body('email')
     .isEmail()
     .withMessage('올바른 이메일 형식이 아닙니다.')
     .normalizeEmail(),
-  body('password')
-    .notEmpty()
-    .withMessage('비밀번호를 입력해주세요.'),
-  validate
+  body('password').notEmpty().withMessage('비밀번호를 입력해주세요.'),
+  validate,
 ];
 
 /**
  * 이메일 인증 코드 발송 Validation
  */
-const sendVerificationValidation = [
+export const sendVerificationValidation: ValidationMiddleware[] = [
   body('email')
     .isEmail()
     .withMessage('올바른 이메일 형식이 아닙니다.')
@@ -73,13 +77,13 @@ const sendVerificationValidation = [
   body('verificationType')
     .isIn(['student', 'employee', 'others'])
     .withMessage('인증 유형은 student, employee, others 중 하나여야 합니다.'),
-  validate
+  validate,
 ];
 
 /**
  * 이메일 인증 코드 확인 Validation
  */
-const confirmVerificationValidation = [
+export const confirmVerificationValidation: ValidationMiddleware[] = [
   body('email')
     .isEmail()
     .withMessage('올바른 이메일 형식이 아닙니다.')
@@ -89,23 +93,21 @@ const confirmVerificationValidation = [
     .withMessage('인증 코드는 6자리여야 합니다.')
     .isNumeric()
     .withMessage('인증 코드는 숫자만 가능합니다.'),
-  validate
+  validate,
 ];
 
 /**
  * 토큰 갱신 Validation
  */
-const refreshTokenValidation = [
-  body('refreshToken')
-    .notEmpty()
-    .withMessage('리프레시 토큰을 입력해주세요.'),
-  validate
+export const refreshTokenValidation: ValidationMiddleware[] = [
+  body('refreshToken').notEmpty().withMessage('리프레시 토큰을 입력해주세요.'),
+  validate,
 ];
 
 /**
  * 프로필 수정 Validation
  */
-const updateProfileValidation = [
+export const updateProfileValidation: ValidationMiddleware[] = [
   body('nickname')
     .optional()
     .trim()
@@ -117,17 +119,15 @@ const updateProfileValidation = [
     .optional({ nullable: true })
     .isURL()
     .withMessage('프로필 이미지는 올바른 URL이어야 합니다.'),
-  validate
+  validate,
 ];
 
 /**
  * 즐겨찾는 경로 추가 Validation
  */
-const addFavoriteValidation = [
+export const addFavoriteValidation: ValidationMiddleware[] = [
   body('departurePlace').notEmpty().withMessage('출발지 정보는 필수입니다.'),
-  body('departurePlace.name')
-    .notEmpty()
-    .withMessage('출발지 이름은 필수입니다.'),
+  body('departurePlace.name').notEmpty().withMessage('출발지 이름은 필수입니다.'),
   body('departurePlace.lat')
     .isFloat({ min: -90, max: 90 })
     .withMessage('출발지 위도는 -90~90 사이의 숫자여야 합니다.')
@@ -137,9 +137,7 @@ const addFavoriteValidation = [
     .withMessage('출발지 경도는 -180~180 사이의 숫자여야 합니다.')
     .toFloat(),
   body('arrivalPlace').notEmpty().withMessage('도착지 정보는 필수입니다.'),
-  body('arrivalPlace.name')
-    .notEmpty()
-    .withMessage('도착지 이름은 필수입니다.'),
+  body('arrivalPlace.name').notEmpty().withMessage('도착지 이름은 필수입니다.'),
   body('arrivalPlace.lat')
     .isFloat({ min: -90, max: 90 })
     .withMessage('도착지 위도는 -90~90 사이의 숫자여야 합니다.')
@@ -148,23 +146,23 @@ const addFavoriteValidation = [
     .isFloat({ min: -180, max: 180 })
     .withMessage('도착지 경도는 -180~180 사이의 숫자여야 합니다.')
     .toFloat(),
-  validate
+  validate,
 ];
 
 /**
  * UUID Validation
  */
-const uuidValidation = (paramName) => [
+export const uuidValidation = (paramName: string): ValidationMiddleware[] => [
   param(paramName)
     .isUUID()
     .withMessage(`${paramName}은(는) 올바른 UUID 형식이어야 합니다.`),
-  validate
+  validate,
 ];
 
 /**
  * 페이지네이션 Validation
  */
-const paginationValidation = [
+export const paginationValidation: ValidationMiddleware[] = [
   query('page')
     .optional()
     .isInt({ min: 1 })
@@ -175,13 +173,13 @@ const paginationValidation = [
     .isInt({ min: 1, max: 100 })
     .withMessage('limit은 1~100 사이의 정수여야 합니다.')
     .toInt(),
-  validate
+  validate,
 ];
 
 /**
  * 좌표 Validation
  */
-const coordinatesValidation = [
+export const coordinatesValidation: ValidationMiddleware[] = [
   query('latitude')
     .isFloat({ min: -90, max: 90 })
     .withMessage('위도는 -90~90 사이의 수여야 합니다.')
@@ -190,19 +188,5 @@ const coordinatesValidation = [
     .isFloat({ min: -180, max: 180 })
     .withMessage('경도는 -180~180 사이의 수여야 합니다.')
     .toFloat(),
-  validate
-];
-
-module.exports = {
   validate,
-  signupValidation,
-  loginValidation,
-  sendVerificationValidation,
-  confirmVerificationValidation,
-  refreshTokenValidation,
-  updateProfileValidation,
-  addFavoriteValidation,
-  uuidValidation,
-  paginationValidation,
-  coordinatesValidation
-};
+];
