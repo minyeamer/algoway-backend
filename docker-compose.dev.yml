@@ -7,7 +7,8 @@ services:
       dockerfile: Dockerfile.dev
     volumes:
       - ./src:/app/src                    # Hot-reload를 위한 소스 마운트
-      - ./server.js:/app/server.js
+      - ./server.ts:/app/server.ts
+      - ./tsconfig.json:/app/tsconfig.json
       - ./package.json:/app/package.json
       - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
     environment:
@@ -18,7 +19,7 @@ services:
       SMTP_SECURE: "false"
       SMTP_USER: ""
       SMTP_PASS: ""
-    command: npm run dev                  # nodemon 실행
+    command: npm run dev                  # ts-node-dev 실행
     depends_on:
       - mailpit
 

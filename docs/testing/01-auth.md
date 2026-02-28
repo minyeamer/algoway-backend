@@ -513,17 +513,3 @@ curl -s -X POST http://localhost:3000/v1/auth/logout \
 
 echo "=== 테스트 완료 ==="
 ```
-
----
-
-## 다음 단계
-
-인증 API 테스트 완료 후:
-
-1. **사용자 API 테스팅** (`docs/testing-users.md`)
-2. **팟 API 테스팅** (`docs/testing-pods.md`)
-3. **채팅 API 테스팅** (`docs/testing-chat.md`)
-4. **평가 API 테스팅** (`docs/testing-ratings.md`)
-
-
-

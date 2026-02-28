@@ -1737,7 +1737,7 @@ logout은 access token 인증이 불필요:
 결과
 ----
   ✅ 3.1 verify/send → 3.2 verify/confirm → 3.3 signup → 3.4 login
-     → 3.5 refresh → 3.6 logout 전체 플로우 성공
+    → 3.5 refresh → 3.6 logout 전체 플로우 성공
 
 
 ================================================================================
@@ -1757,4 +1757,184 @@ logout은 access token 인증이 불필요:
   이전 작업에서 cat >> / heredoc / python -c 등으로 chat.log 수정을 시도하다
   파일이 손상되는 사고가 발생.
   git checkout으로 복구 후 에디터 도구(replace_string_in_file)로 재작성.
+
+================================================================================
+[2026-02-28] dev→main 병합 및 feature/users 기획
+================================================================================
+
+작업 내용
+---------
+  git checkout main && git merge dev --no-ff -m "chore(release): merge feature/auth to main"
+  git push origin main 실행하여 인증 기능 운영 브랜치에 반영 (커밋 8ee13a9)
+  이후 다음 기능 개발 순서 결정: users → pods → chat → ratings → notifications → location
+
+설계 결정 사항
+--------------
+  feature/users 브랜치는 pods 기능 완성 때까지 유지 (삭제 금지)
+  dev와 주기적으로 변경사항 동기화하면서 진행
+
+================================================================================
+[2026-02-28] 사용자 API 구현 (feature/users)
+================================================================================
+
+배경
+----
+  인증 API 완료 후 다음 도메인인 Users API를 구현한다.
+  users 테이블을 중심으로 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로를 다룬다.
+
+브랜치 전략
+-----------
+  feature/users 브랜치를 dev에서 분기하여 작업
+  pods 기능 완성 시점에 feature/users 삭제 및 dev→main 반영
+
+구현된 엔드포인트 (7개)
+-----------------------
+  GET  /v1/users/me                          내 프로필 조회
+  PATCH /v1/users/me                         프로필 수정 (nickname, profileImage URL)
+  GET  /v1/users/:userId                     공개 프로필 조회 (email 제외)
+  GET  /v1/users/me/rides                    탑승 내역 페이지네이션
+  GET  /v1/users/me/favorites                즐겨찾는 경로 목록
+  POST /v1/users/me/favorites                즐겨찾는 경로 추가
+  DELETE /v1/users/me/favorites/:favoriteId  즐겨찾는 경로 삭제
+
+파일 구조
+---------
+  src/services/userService.js     — DB 쿼리 로직 (7개 함수)
+  src/controllers/userController.js — HTTP 요청/응답 처리
+  src/routes/users.js             — 라우트 정의 (고정경로 /me/* 먼저, /:userId 마지막)
+  src/middlewares/validator.js    — updateProfileValidation, addFavoriteValidation 추가
+  src/app.js                      — /v1/users 라우트 주석 해제
+
+설계 결정 사항
+--------------
+  프로필 이미지: Supabase Storage 연동 대신 URL 문자열로 처리 (Storage는 추후)
+  즐겨찾는 경로 좌표: PostGIS ST_Point(lng, lat) INSERT, ST_X/ST_Y로 SELECT
+  탑승 내역: pod_participants JOIN pods JOIN users(creator) 쿼리, 페이지네이션 적용
+  GET /:userId는 /me/* 라우트와 충돌하지 않도록 라우트 파일 맨 마지막에 선언
+  공개 프로필에서 email, password_hash 필드 제외
+
+다음 단계
+---------
+  feature/users → dev 병합 후 feature/pods 시작
+
+================================================================================
+[2026-03-01] TypeScript 마이그레이션 (feature/users)
+================================================================================
+
+배경
+----
+기존 소스코드가 전부 JavaScript로 작성되어 있어 TypeScript로 전환했다.
+강타입으로 런타임 에러를 사전 차단하고, req.user 등 Express 확장 타입을
+명시적으로 관리하기 위해 전체 마이그레이션을 진행했다.
+
+브랜치 전략
+-----------
+  작업 브랜치: feature/users
+
+설치 패키지
+-----------
+  devDependencies 추가:
+    - typescript, ts-node-dev
+    - @types/node, @types/express, @types/bcryptjs
+    - @types/jsonwebtoken, @types/nodemailer, @types/pg, @types/cors
+  ※ redis, express-validator는 자체 타입 내장 (@types 불필요)
+
+작업 내용
+---------
+  1. tsconfig.json 추가
+    - target: ES2022, module: commonjs, moduleResolution: node
+    - strict: true, noImplicitAny: true, noImplicitReturns: true
+    - outDir: ./dist, rootDir: ./
+    - include: ["src/**/*.ts", "server.ts"]
+
+  2. package.json scripts 변경
+    - dev: nodemon → ts-node-dev --respawn --transpile-only
+    - build: tsc
+    - start: node dist/server.js
+
+  3. 타입 선언 파일 추가
+    - src/types/index.ts: User, JwtPayload, TokenPair, FavoriteRoute 등 공유 인터페이스
+    - src/types/express.d.ts: Express.Request에 user 필드 전역 확장
+
+  4. JS → TS 전환 (23개 파일)
+    - src/config/constants.ts, database.ts, redis.ts
+    - src/utils/caseConverter.ts, jwt.ts, logger.ts, response.ts
+    - src/middlewares/auth.ts, errorHandler.ts, validator.ts
+    - src/services/authService.ts, emailService.ts, userService.ts
+    - src/controllers/authController.ts, userController.ts
+    - src/routes/auth.ts, users.ts
+    - src/app.ts, server.ts
+
+  5. Dockerfile 수정 (프로덕션)
+    - Builder 스테이지에서 npm ci (devDependencies 포함) 후 tsc 빌드
+    - Runner 스테이지는 dist/ 복사 후 node dist/server.js 실행
+
+  6. docker-compose.dev.yml 수정
+    - server.js → server.ts 볼륨 마운트 변경
+    - tsconfig.json 볼륨 마운트 추가
+
+  7. 원본 JS 파일 삭제
+    - server.js, src/**/*.js 전체 삭제
+
+주요 변경 사항
+-------------
+  - extractToken() 함수 신규 추가:
+    기존 auth.js에서 사용했으나 jwt.js에 export가 없었던 함수를
+    jwt.ts에 명시적으로 추가 (Authorization 헤더 파싱)
+
+  - AuthenticatedRequest 타입:
+    Express.Request를 확장한 타입으로 req.user에 타입 안전성 부여
+    controllers/userController.ts에서 AuthenticatedRequest 사용
+
+  - 제네릭 DB 헬퍼:
+    query<T>(), transaction<T>()에 타입 파라미터 추가
+    CamelQueryResult<T extends QueryResultRow> 인터페이스 정의
+
+  - Redis 타입 안전성:
+    setJSON<T>/getJSON<T> 제네릭 추가
+
+테스팅 문서 경로 정리
+-------------------
+  docs/testing-auth.md, testing-users.md → docs/testing/ 폴더로 통합
+    - docs/testing/01-auth.md
+    - docs/testing/02-users.md
+  docs/ai-guidelines.md 및 02-users.md 내 경로 참조 업데이트
+  임시 테스트 스크립트(scripts/test-migration.sh)는 temp/ 폴더로 이동 후
+  .gitignore에 temp/ 등록하여 버전관리 제외
+
+마이그레이션 검증
+----------------
+  Docker 이미지 재빌드 후 전 엔드포인트 정상 확인:
+    Auth API (6개):
+      ✅ 3.1 verify/send  - 인증 코드 발송
+      ✅ 3.2 verify/confirm - 인증 코드 확인 (isVerified: true)
+      ✅ 3.3 signup        - 회원가입
+      ✅ 3.4 login         - 로그인 (accessToken, refreshToken 발급)
+      ✅ 3.5 refresh       - 토큰 갱신
+      ✅ 3.6 logout        - 로그아웃
+    Users API (7개):
+      ✅ GET  /me            - 내 프로필 조회
+      ✅ PATCH /me           - 프로필 수정 (nickname 변경 확인)
+      ✅ GET  /me/rides      - 탑승 내역 (빈 배열, 페이지네이션 정상)
+      ✅ POST /me/favorites  - 즐겨찾는 경로 추가 (PostGIS 좌표 저장)
+      ✅ GET  /me/favorites  - 즐겨찾는 경로 목록
+      ✅ DELETE /me/favorites/:id - 즐겨찾는 경로 삭제
+      ✅ GET  /:userId        - 공개 프로필 조회
+
+설계 결정 사항
+--------------
+  - ts-node-dev --transpile-only:
+    타입 검사를 건너뛰고 트랜스파일만 수행하여 개발 서버 재시작 속도 최적화
+    타입 오류는 IDE(Pylance/tsserver)와 tsc --noEmit으로 별도 확인
+
+  - moduleResolution: "node" 명시:
+    "module": "commonjs" 설정 시 기본값이지만 VS Code 언어 서버 오작동 방지를 위해 명시
+
+  - 원본 JS 파일 전량 삭제:
+    TS/JS 중복 존재 시 ts-node-dev가 잘못된 파일을 로드할 수 있어 즉시 삭제
+
+다음 단계
+---------
+  feature/users → dev 병합 → main 반영 → 브랜치 삭제
+  다음 기능: feature/pods (카풀 팟 API)
 
