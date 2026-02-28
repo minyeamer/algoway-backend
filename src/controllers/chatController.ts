@@ -1,15 +1,15 @@
-import { Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import * as chatService from '../services/chatService';
 import { successResponse, paginatedResponse } from '../utils/response';
 import { CHAT, PAGINATION } from '../config/constants';
-import type { AuthenticatedRequest, SendMessageInput } from '../types';
+import type { SendMessageInput } from '../types';
 
 /**
  * 내 채팅방 목록 조회
  * GET /v1/chat/rooms
  */
 export const getMyChatRooms = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -26,7 +26,7 @@ export const getMyChatRooms = async (
  * GET /v1/chat/rooms/:chatRoomId/messages
  */
 export const getMessages = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -57,7 +57,7 @@ export const getMessages = async (
  * POST /v1/chat/rooms/:chatRoomId/messages
  */
 export const sendMessage = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -77,7 +77,7 @@ export const sendMessage = async (
  * POST /v1/chat/rooms/:chatRoomId/ready
  */
 export const updateReadyStatus = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -97,7 +97,7 @@ export const updateReadyStatus = async (
  * GET /v1/chat/rooms/:chatRoomId/participants
  */
 export const getParticipants = async (
-  req: AuthenticatedRequest,
+  req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
