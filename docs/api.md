@@ -40,9 +40,11 @@ POST /v1/auth/signup
     "isVerified": false,
     "verificationRequired": true
   },
-  "message": "회원가입이 완료되었습니다. 이메일 인증을 진행해주세요."
+  "message": "회원가입이 완료되었습니다. 이메일로 발송된 인증 코드를 확인해주세요."
 }
 ```
+
+**Note**: 회원가입 시 자동으로 인증 코드가 이메일로 발송됩니다. 인증 완료 후 로그인이 가능합니다.
 
 ### 1.2. 로그인
 
@@ -77,11 +79,24 @@ POST /v1/auth/login
 }
 ```
 
-### 1.3. 이메일 인증 코드 발송
+**Error Response - 403 Forbidden (이메일 미인증)**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "이메일 인증이 필요합니다. 회원가입 시 발송된 인증 코드를 확인해주세요."
+  }
+}
+```
+
+### 1.3. 이메일 인증 코드 재발송
 
 ```
 POST /v1/auth/verify/send
 ```
+
+**Note**: 회원가입 시 자동으로 인증 코드가 발송됩니다. 이 API는 코드를 받지 못했거나 만료된 경우에만 사용하세요.
 
 **Request Body**
 ```json
@@ -95,7 +110,7 @@ POST /v1/auth/verify/send
 ```json
 {
   "success": true,
-  "message": "인증 코드가 발송되었습니다."
+  "message": "인증 코드가 재발송되었습니다."
 }
 ```
 
@@ -103,7 +118,9 @@ POST /v1/auth/verify/send
 
 ```
 POST /v1/auth/verify/confirm
-```
+``Note**: 인증 완료 후 로그인이 가능합니다.
+
+**`
 
 **Request Body**
 ```json

@@ -212,42 +212,32 @@ algoway/
 
 ### 4-1. 로컬 개발 환경 (docker-compose.dev.yml)
 
-로컬에서는 Docker Compose로 PostgreSQL + Redis + Backend를 함께 실행한다.
-단, Supabase는 클라우드를 사용하므로 Docker에 포함하지 않는다.
+로컬에서는 Docker Compose로 Redis + Backend만 실행한다.
+**PostgreSQL은 Supabase 클라우드를 사용**하므로 Docker에 포함하지 않는다.
 
 **docker-compose.yml (기본)**
 ```yaml
 version: '3.9'
 
 services:
-  # PostgreSQL (Supabase 대신 로컬 개발용, 선택사항)
-  postgres:
-    image: postgis/postgis:16-3.4
-    container_name: algoway-postgres
-    environment:
-      POSTGRES_USER: algoway
-      POSTGRES_PASSWORD: algoway123
-      POSTGRES_DB: algoway
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init:/docker-entrypoint-initdb.d
-    networks:
-      - algoway-network
-
   # Redis
   redis:
     image: redis:7-alpine
     container_name: algoway-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
       - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     networks:
       - algoway-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   # 백엔드 (개발 모드는 dev.yml에서 오버라이드)
   backend:
@@ -258,18 +248,19 @@ services:
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - algoway-network
+    restart: unless-stopped
 
 networks:
   algoway-network:
     driver: bridge
 
 volumes:
-  postgres_data:
   redis_data:
 ```
 
@@ -283,17 +274,18 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     volumes:
-      - ./src:/app/src          # Hot-reload를 위한 소스 마운트
+      - ./src:/app/src                    # Hot-reload를 위한 소스 마운트
+      - ./server.js:/app/server.js
       - ./package.json:/app/package.json
-      - /app/node_modules        # node_modules는 컨테이너 내부 것 사용
+      - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
     environment:
       NODE_ENV: development
-    command: npm run dev          # nodemon 실행
+    command: npm run dev                  # nodemon 실행
 ```
 
 **실행 방법**
 ```bash
-# 개발 환경 실행
+# 개발 환경 실행 (hot-reload 지원)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 # 백엔드 로그 확인
@@ -301,6 +293,9 @@ docker logs -f algoway-backend
 
 # 전체 종료
 docker compose down
+
+# 볼륨 포함 전체 삭제
+docker compose down -v
 ```
 
 ### 4-2. Dockerfile (운영용)

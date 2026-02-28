@@ -141,59 +141,59 @@ Supabase SQL Editor에서 실행하여 초기화한다.
 생성된 테이블 (12개)
 --------------------
   1. users (사용자 계정)
-     - user_id (UUID PK), email (UNIQUE), password_hash, nickname
-     - user_type (student/employee/others), is_verified, verification_badge
-     - manner_score (DECIMAL, 1.0~5.0), total_rides
-     - created_at, updated_at
+    - user_id (UUID PK), email (UNIQUE), password_hash, nickname
+    - user_type (student/employee/others), is_verified, verification_badge
+    - manner_score (DECIMAL, 1.0~5.0), total_rides
+    - created_at, updated_at
 
   2. verification_codes (이메일 인증 코드)
-     - code_id (UUID PK), email, code (6자리), verification_type
-     - expires_at (10분 유효), is_used, created_at
+    - code_id (UUID PK), email, code (6자리), verification_type
+    - expires_at (10분 유효), is_used, created_at
 
   3. refresh_tokens (JWT 리프레시 토큰)
-     - token_id (UUID PK), user_id (FK), token, expires_at (7일), created_at
+    - token_id (UUID PK), user_id (FK), token, expires_at (7일), created_at
 
   4. pods (카풀 팟)
-     - pod_id (UUID PK), creator_id (FK)
-     - departure_place_name, departure_location (GEOGRAPHY POINT)
-     - arrival_place_name, arrival_location (GEOGRAPHY POINT)
-     - departure_time, max_participants (2~4), current_participants
-     - vehicle_type (taxi/personal), estimated_cost, cost_per_person
-     - status (recruiting/full/in_progress/completed/cancelled)
+    - pod_id (UUID PK), creator_id (FK)
+    - departure_place_name, departure_location (GEOGRAPHY POINT)
+    - arrival_place_name, arrival_location (GEOGRAPHY POINT)
+    - departure_time, max_participants (2~4), current_participants
+    - vehicle_type (taxi/personal), estimated_cost, cost_per_person
+    - status (recruiting/full/in_progress/completed/cancelled)
 
   5. pod_participants (팟 참여자 중간 테이블)
-     - participant_id (UUID PK), pod_id (FK), user_id (FK)
-     - UNIQUE(pod_id, user_id)
+    - participant_id (UUID PK), pod_id (FK), user_id (FK)
+    - UNIQUE(pod_id, user_id)
 
   6. chat_rooms (채팅방)
-     - chat_room_id (UUID PK), pod_id (FK UNIQUE), created_at
+    - chat_room_id (UUID PK), pod_id (FK UNIQUE), created_at
 
   7. messages (채팅 메시지)
-     - message_id (UUID PK), chat_room_id (FK), sender_id (FK)
-     - message_type (text/location/status/system)
-     - content, location_lat, location_lng, location_address
+    - message_id (UUID PK), chat_room_id (FK), sender_id (FK)
+    - message_type (text/location/status/system)
+    - content, location_lat, location_lng, location_address
 
   8. ready_status (참여자 준비 완료 상태)
-     - status_id (UUID PK), chat_room_id (FK), user_id (FK)
-     - is_ready, updated_at
+    - status_id (UUID PK), chat_room_id (FK), user_id (FK)
+    - is_ready, updated_at
 
   9. ratings (매너 평가)
-     - rating_id (UUID PK), pod_id (FK), reviewer_id (FK), reviewee_id (FK)
-     - rating (1~5), comment
+    - rating_id (UUID PK), pod_id (FK), reviewer_id (FK), reviewee_id (FK)
+    - rating (1~5), comment
 
   10. favorite_routes (즐겨찾는 경로)
-      - favorite_id (UUID PK), user_id (FK)
-      - departure_place { name, location (GEOGRAPHY POINT) }
-      - arrival_place { name, location (GEOGRAPHY POINT) }
+    - favorite_id (UUID PK), user_id (FK)
+    - departure_place { name, location (GEOGRAPHY POINT) }
+    - arrival_place { name, location (GEOGRAPHY POINT) }
 
   11. notifications (알림)
-      - notification_id (UUID PK), user_id (FK)
-      - notification_type (pod_joined/pod_full/message/rating/system)
-      - title, content, is_read
+    - notification_id (UUID PK), user_id (FK)
+    - notification_type (pod_joined/pod_full/message/rating/system)
+    - title, content, is_read
 
   12. notification_settings (알림 설정)
-      - setting_id (UUID PK), user_id (FK)
-      - notification_type, is_enabled
+    - setting_id (UUID PK), user_id (FK)
+    - notification_type, is_enabled
 
 PostGIS 활용
 ------------
@@ -205,13 +205,13 @@ PostGIS 활용
 트리거 구현
 -----------
   1. update_pod_participants_count
-     - pod_participants INSERT/DELETE 시 pods.current_participants 자동 업데이트
+    - pod_participants INSERT/DELETE 시 pods.current_participants 자동 업데이트
 
   2. update_manner_score
-     - ratings INSERT 시 users.manner_score 평균 재계산
+    - ratings INSERT 시 users.manner_score 평균 재계산
 
   3. update_updated_at
-     - users, pods 등 UPDATE 시 updated_at 자동 갱신
+    - users, pods 등 UPDATE 시 updated_at 자동 갱신
 
 인덱스 전략
 -----------
@@ -231,62 +231,62 @@ api.md §1 Auth 전체 10개 엔드포인트를 구현했다.
 구현된 기능
 -----------
   1. POST /v1/auth/signup (회원가입)
-     - email, password, user_type, nickname 입력
-     - 비밀번호 bcrypt 해싱 (salt rounds: 10)
-     - 이메일 중복 체크
-     - 환영 이메일 자동 발송
+    - email, password, user_type, nickname 입력
+    - 비밀번호 bcrypt 해싱 (salt rounds: 10)
+    - 이메일 중복 체크
+    - 환영 이메일 자동 발송
 
   2. POST /v1/auth/login (로그인)
-     - email, password 검증
-     - JWT Access Token (1시간) + Refresh Token (7일) 발급
-     - Refresh Token은 DB에 저장
+    - email, password 검증
+    - JWT Access Token (1시간) + Refresh Token (7일) 발급
+    - Refresh Token은 DB에 저장
 
   3. POST /v1/auth/verify/send (이메일 인증 코드 발송)
-     - 6자리 랜덤 숫자 코드 생성
-     - expires_at = 현재 + 10분
-     - Nodemailer로 이메일 전송 (개발 환경: Ethereal Email)
+    - 6자리 랜덤 숫자 코드 생성
+    - expires_at = 현재 + 10분
+    - Nodemailer로 이메일 전송 (개발 환경: Ethereal Email)
 
   4. POST /v1/auth/verify/confirm (이메일 인증 코드 확인)
-     - 코드 검증, 만료 시간 체크
-     - users.is_verified = true 업데이트
-     - verification_badge 부여 (student/employee/others)
-     - JWT 인증 필요
+    - 코드 검증, 만료 시간 체크
+    - users.is_verified = true 업데이트
+    - verification_badge 부여 (student/employee/others)
+    - JWT 인증 필요
 
   5. POST /v1/auth/refresh (토큰 갱신)
-     - Refresh Token 검증 (DB 조회)
-     - 새로운 Access Token + Refresh Token 발급
-     - 기존 Refresh Token 삭제 (보안)
+    - Refresh Token 검증 (DB 조회)
+    - 새로운 Access Token + Refresh Token 발급
+    - 기존 Refresh Token 삭제 (보안)
 
   6. POST /v1/auth/logout (로그아웃)
-     - Refresh Token DB에서 삭제
-     - JWT 인증 필요
+    - Refresh Token DB에서 삭제
+    - JWT 인증 필요
 
   7. POST /v1/auth/password/forgot (비밀번호 재설정 요청)
-     - 이메일로 재설정 링크 발송
-     - JWT 기반 일회용 토큰 (1시간 유효)
+    - 이메일로 재설정 링크 발송
+    - JWT 기반 일회용 토큰 (1시간 유효)
 
   8. POST /v1/auth/password/reset (비밀번호 재설정 확인)
-     - 토큰 검증 후 새 비밀번호 설정
+    - 토큰 검증 후 새 비밀번호 설정
 
   9. POST /v1/auth/password/change (비밀번호 변경)
-     - 기존 비밀번호 확인 후 변경
-     - JWT 인증 필요
+    - 기존 비밀번호 확인 후 변경
+    - JWT 인증 필요
 
   10. POST /v1/auth/email/change (이메일 변경)
-      - 새 이메일로 인증 코드 발송
-      - 인증 완료 후 이메일 변경
+    - 새 이메일로 인증 코드 발송
+    - 인증 완료 후 이메일 변경
 
 파일 구조
 ---------
   src/
-    ├── routes/auth.js           # 라우트 정의 (express-validator 검증)
+    ├── routes/auth.js        # 라우트 정의 (express-validator 검증)
     ├── controllers/authController.js  # 요청 처리, 응답
     ├── services/authService.js  # 비즈니스 로직 (DB 직접 쿼리)
     ├── services/emailService.js # 이메일 전송 (Nodemailer)
-    ├── middlewares/auth.js      # JWT 인증 미들웨어
+    ├── middlewares/auth.js    # JWT 인증 미들웨어
     ├── middlewares/validator.js # 검증 결과 처리
-    ├── utils/jwt.js             # JWT 생성/검증 유틸
-    └── utils/response.js        # 응답 포맷 (success, error)
+    ├── utils/jwt.js         # JWT 생성/검증 유틸
+    └── utils/response.js      # 응답 포맷 (success, error)
 
 설계 결정 사항
 --------------
@@ -375,14 +375,14 @@ Transaction Pooler vs Session Pooler
 작업 내용
 ---------
   1. infra.md 작성
-     - lookflex/docs/infra.md 형식을 참고하되 algoway에 맞게 조정
-     - 백엔드만 있는 프로젝트로 프론트엔드 관련 내용 제외
-     - Node.js + Express + Supabase 스택에 맞는 구조 설계
+    - lookflex/docs/infra.md 형식을 참고하되 algoway에 맞게 조정
+    - 백엔드만 있는 프로젝트로 프론트엔드 관련 내용 제외
+    - Node.js + Express + Supabase 스택에 맞는 구조 설계
 
   2. chat.log 작성
-     - algoway-old/logs.md의 내용을 lookflex/docs/chat.log 형식으로 재구성
-     - 과거 작업 내역 정리 (2026-02-25)
-     - 현재 작업 내역 추가 (2026-02-28)
+    - algoway-old/logs.md의 내용을 lookflex/docs/chat.log 형식으로 재구성
+    - 과거 작업 내역 정리 (2026-02-25)
+    - 현재 작업 내역 추가 (2026-02-28)
 
 생성된 문서
 -----------
@@ -432,62 +432,968 @@ Transaction Pooler vs Session Pooler
 다음 단계 (예정)
 ----------------
   1. Git 커밋 및 푸시
-     - 커밋 메시지: "docs: add infra.md and chat.log for project architecture"
+    - 커밋 메시지: "docs: add infra.md and chat.log for project architecture"
 
   2. 프로젝트 스캐폴딩 (chore: initial project scaffold)
-     - 폴더 구조 생성 (src/, scripts/, infra/, tests/)
-     - package.json 설정
-     - .env.example, .gitignore 생성
-     - Docker 파일 생성 (Dockerfile, docker-compose.yml)
+    - 폴더 구조 생성 (src/, scripts/, infra/, tests/)
+    - package.json 설정
+    - .env.example, .gitignore 생성
+    - Docker 파일 생성 (Dockerfile, docker-compose.yml)
 
   3. Supabase 연결 및 DB 초기화
-     - scripts/init-db.sql 실행
-     - src/config/database.js 구현
+    - scripts/init-db.sql 실행
+    - src/config/database.js 구현
 
   4. 인증 API 구현 (algoway-old 코드 이식)
-     - src/routes/auth.js
-     - src/controllers/authController.js
-     - src/services/authService.js
-     - src/middlewares/auth.js
+    - src/routes/auth.js
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/middlewares/auth.js
 
   5. 사용자 API 구현
-     - 프로필 조회/수정
-     - 탑승 내역 조회
-     - 즐겨찾는 경로 관리
+    - 프로필 조회/수정
+    - 탑승 내역 조회
+    - 즐겨찾는 경로 관리
 
   6. 팟 API 구현
-     - 팟 생성/조회/검색
-     - 팟 참여/나가기
-     - PostGIS 지리 검색
+    - 팟 생성/조회/검색
+    - 팟 참여/나가기
+    - PostGIS 지리 검색
 
   7. 채팅 API 구현
-     - 채팅방 목록
-     - 메시지 조회/전송
-     - Socket.io 실시간 통신
+    - 채팅방 목록
+    - 메시지 조회/전송
+    - Socket.io 실시간 통신
 
   8. 평가 API 구현
-     - 매너 평가 작성/조회
+    - 매너 평가 작성/조회
 
   9. 알림 API 구현
-     - 알림 목록 조회
-     - 알림 설정 관리
+    - 알림 목록 조회
+    - 알림 설정 관리
 
   10. 배포
-      - Railway 연동
-      - CI/CD 설정 (GitHub Actions)
+    - Railway 연동
+    - CI/CD 설정 (GitHub Actions)
 
 ================================================================================
+[2026-02-28] Docker 인프라 구성 및 브랜치 전략 수립
+================================================================================
 
-다음 커밋 예정
+배경
+----
+문서 작성 후 실제 개발 환경을 구축하기 위해 Docker 인프라를 구성한다.
+Supabase를 PostgreSQL로 사용하므로 로컬 PostgreSQL은 불필요하며,
+Redis + Backend만 Docker로 실행한다.
+
+브랜치 전략 수립
+---------------
+  - main: 운영 배포 브랜치
+  - dev: 개발 통합 브랜치 (새로 생성)
+  - feature/*: 기능 개발 브랜치 (dev에서 분기)
+
+작업 브랜치:
+  - feature/docker-setup (dev에서 분기)
+
+작업 내용
+---------
+  1. Docker 파일 생성
+    - docker-compose.yml: Redis + Backend 기본 구성
+    - docker-compose.dev.yml: 개발 환경 오버라이드 (hot-reload)
+    - Dockerfile: 프로덕션 멀티스테이지 빌드
+    - Dockerfile.dev: 개발용 단순 이미지
+
+  2. 인프라 설정 파일
+    - infra/redis/redis.conf: Redis 설정
+    - .env.example: 환경 변수 템플릿
+
+  3. 프로젝트 기본 파일
+    - package.json: 의존성 및 스크립트 정의
+    - .gitignore: 이미 존재 (chat.log 제외 설정 완료)
+
+설계 결정 사항
 --------------
-커밋 규칙: Git 커밋 생성 직전에 chat.log에 작업 내역을 먼저 기록한다.
-이번 커밋은 문서 작성이므로 chat.log가 함께 커밋된다.
+  - PostgreSQL 제외:
+    * Supabase 클라우드를 사용하므로 로컬 PostgreSQL 불필요
+    * algoway-old/.env에 Supabase 연결 정보 보유
+    * DATABASE_URL에 Transaction Pooler (Port 6543) 사용
 
-커밋 메시지:
-  docs: add infra.md and chat.log for project architecture
+  - Hot-reload 구현 (airflow 참고):
+    * docker-compose.dev.yml에서 볼륨 마운트
+    * ./src:/app/src → 소스 코드 변경 자동 반영
+    * ./server.js:/app/server.js → 진입점 변경 반영
+    * ./package.json:/app/package.json → 의존성 변경 감지
+    * /app/node_modules → 컨테이너 내부 것 사용 (호스트 덮어쓰기 방지)
 
-  - Create infra.md documenting backend architecture, Docker setup, database design,
-    authentication, real-time communication, and deployment strategy
-  - Create chat.log documenting project history and technical decisions from 2026-02-25
-    including API design, database schema, auth API implementation, and Supabase troubleshooting
-  - Reference lookflex project structure for documentation format
+  - Redis 설정:
+    * 최대 메모리: 256MB
+    * 메모리 정책: allkeys-lru (가장 오래된 키 제거)
+    * AOF (Append Only File) 활성화 → 데이터 지속성
+    * 개발 환경에서는 비밀번호 미설정 (프로덕션에서 설정 필요)
+
+  - Docker Compose 헬스체크:
+    * Redis: redis-cli ping
+    * Backend: Redis 헬스체크 완료 후 시작
+
+  - 환경 변수:
+    * REDIS_URL: redis://redis:6379 (Docker 네트워크 내부 호스트명)
+    * PORT: 3000 (호스트와 컨테이너 포트 매핑)
+    * NODE_ENV: development (dev.yml에서 오버라이드)
+
+실행 방법
+---------
+  ```bash
+  # .env 파일 생성 (algoway-old/.env 참고)
+  cp .env.example .env
+  # Supabase 정보 입력
+  
+  # 개발 환경 실행 (hot-reload)
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+  
+  # 로그 확인
+  docker logs -f algoway-backend
+  
+  # 종료
+  docker compose down
+  
+  # 볼륨 포함 삭제
+  docker compose down -v
+  ```
+
+의존성 패키지 (package.json)
+----------------------------
+  주요 의존성:
+    - @supabase/supabase-js: Supabase 클라이언트
+    - express: 웹 프레임워크
+    - bcryptjs: 비밀번호 해싱
+    - jsonwebtoken: JWT 토큰
+    - express-validator: 입력 검증
+    - nodemailer: 이메일 전송
+    - pg: PostgreSQL 드라이버
+    - redis: Redis 클라이언트
+    - socket.io: 실시간 통신
+    - winston: 로깅
+
+  개발 의존성:
+    - nodemon: 개발 서버 hot-reload
+    - jest: 테스트 프레임워크
+    - eslint: 코드 린트
+    - prettier: 코드 포맷터
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/docker-setup → dev 머지
+    
+  2. 프로젝트 스캐폴딩 (feature/project-structure)
+    - src/ 폴더 구조 생성
+    - server.js 진입점 생성
+    - src/app.js Express 앱 설정
+    - src/config/database.js Supabase 연결
+    - src/config/redis.js Redis 연결
+
+  3. 인증 API 이식 (feature/auth)
+    - algoway-old 코드 이식
+    - src/routes/auth.js
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/middlewares/auth.js
+
+  4. 나머지 API 구현
+    - Users API
+    - Pods API (PostGIS 지리 검색)
+    - Chat API (Socket.io)
+    - Rating API
+    - Notification API
+
+================================================================================
+[2026-02-28] 프로젝트 스캐폴딩 및 핵심 모듈 구현
+================================================================================
+
+배경
+----
+Docker 인프라 구성 완료 후, 실제 백엔드 서버의 기본 구조를 구축한다.
+infra.md에 설계된 폴더 구조를 실제로 생성하고, 핵심 모듈(DB 연결, Redis,
+Logger, JWT, 응답 헬퍼)을 구현한다.
+
+브랜치 전략
+----------
+  - feature/project-structure (dev에서 분기)
+
+작업 내용
+---------
+  1. 서버 진입점 (server.js)
+    - Express 앱 로드 및 HTTP 서버 시작
+    - Graceful shutdown 구현 (SIGTERM, SIGINT)
+    - Unhandled rejection/exception 처리
+
+  2. Express 앱 설정 (src/app.js)
+    - 미들웨어 등록: helmet, cors, express.json, express.urlencoded
+    - Health check 엔드포인트 (GET /health)
+    - 404 처리
+    - 전역 에러 핸들러 (개발 환경에서 스택 트레이스 노출)
+
+  3. 데이터베이스 연결 (src/config/database.js)
+    - Supabase 클라이언트 초기화 (Realtime, Auth, Storage 등)
+    - PostgreSQL Pool 연결 (Transaction Pooler Port 6543)
+    - query() 헬퍼 함수 (쿼리 로깅, 실행 시간 측정)
+    - transaction() 헬퍼 함수 (BEGIN, COMMIT, ROLLBACK)
+
+  4. Redis 연결 (src/config/redis.js)
+    - Redis 클라이언트 초기화 및 연결
+    - Graceful shutdown 지원
+    - 헬퍼 함수: get, set, del, exists, expire, ttl
+    - JSON 직렬화/역직렬화: setJSON, getJSON
+
+  5. 상수 정의 (src/config/constants.js)
+    - 사용자 유형, 팟 상태, 메시지 타입, 알림 타입
+    - 에러 코드 (UNAUTHORIZED, VALIDATION_ERROR, POD_FULL 등)
+    - JWT 만료 시간 (Access 1h, Refresh 7d)
+    - Rate Limiting 설정 (일반 100회/10분, 로그인 5회/10분)
+    - 페이지네이션 기본값 (page=1, limit=20, max=100)
+    - 지리 검색 반경 (기본 5km, 최대 20km)
+
+  6. 로거 (src/utils/logger.js)
+    - Winston 기반 로거
+    - 개발 환경: 콘솔 출력 (색상 포함)
+    - 운영 환경: 파일 저장 (logs/error.log, logs/combined.log)
+    - 로그 레벨: 개발=debug, 운영=info
+
+  7. 응답 헬퍼 (src/utils/response.js)
+    - successResponse(res, data, statusCode): 성공 응답
+    - errorResponse(res, code, message, statusCode, details): 에러 응답
+    - paginatedResponse(res, items, total, page, limit): 페이지네이션 응답
+    - AppError 클래스: 커스텀 에러 (code, statusCode, details)
+
+  8. JWT 유틸리티 (src/utils/jwt.js)
+    - generateAccessToken(payload): Access Token 생성 (1시간)
+    - generateRefreshToken(payload): Refresh Token 생성 (7일)
+    - generatePasswordResetToken(payload): 비밀번호 재설정 토큰 (1시간)
+    - verifyAccessToken(token): Access Token 검증
+    - verifyRefreshToken(token): Refresh Token 검증
+    - verifyPasswordResetToken(token): 비밀번호 재설정 토큰 검증
+
+  9. 폴더 구조 생성
+    - src/middlewares/ (auth, errorHandler, validator, rateLimit)
+    - src/routes/ (auth, users, pods, chat, ratings, notifications)
+    - src/controllers/ (도메인별 컨트롤러)
+    - src/services/ (비즈니스 로직)
+    - src/repositories/ (DB CRUD 추상화)
+    - src/websocket/ (Socket.io 핸들러)
+    - scripts/ (init-db.sql, seed-db.js)
+    - tests/ (unit, integration, fixtures)
+
+    각 폴더에 .gitkeep 추가 (빈 디렉토리 git 추적)
+
+파일 구조
+---------
+  생성된 파일 (16개):
+    server.js                       # HTTP 서버 진입점
+    src/app.js                      # Express 앱 설정
+    src/config/database.js          # PostgreSQL + Supabase 연결
+    src/config/redis.js             # Redis 클라이언트
+    src/config/constants.js         # 상수 정의
+    src/utils/logger.js             # Winston 로거
+    src/utils/response.js           # 응답 헬퍼
+    src/utils/jwt.js                # JWT 유틸리티
+    src/middlewares/.gitkeep
+    src/routes/.gitkeep
+    src/controllers/.gitkeep
+    src/services/.gitkeep
+    src/repositories/.gitkeep
+    src/websocket/.gitkeep
+    scripts/.gitkeep
+    tests/.gitkeep
+
+설계 결정 사항
+--------------
+  - Pool 기반 PostgreSQL 연결:
+    * max: 20 (최대 연결 수)
+    * idleTimeoutMillis: 30000 (30초)
+    * connectionTimeoutMillis: 5000 (5초)
+    * Transaction Pooler (Port 6543) 사용
+
+  - Redis 헬퍼 함수:
+    * setJSON/getJSON으로 JSON 직렬화 자동 처리
+    * TTL 옵션으로 캐시 만료 시간 설정 (예: 5분, 1시간)
+
+  - 로거 설정:
+    * 개발 환경: 콘솔 출력 (색상, 타임스탬프, 메타데이터)
+    * 운영 환경: 파일 저장 (JSON 형식, 로테이션 준비)
+
+  - AppError 클래스:
+    * code: ERROR_CODES에 정의된 에러 코드
+    * statusCode: HTTP 상태 코드 (400, 401, 403, 404, 500 등)
+    * details: 추가 정보 (예: 검증 실패 필드 목록)
+
+  - Graceful shutdown:
+    * SIGTERM, SIGINT 시그널 처리
+    * HTTP 서버 종료 → Redis/DB 연결 종료 → 프로세스 종료
+
+  - Envelope 패턴:
+    * 성공: { success: true, data: { ... } }
+    * 실패: { success: false, error: { code, message, details? } }
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/project-structure → dev 머지
+
+  2. 데이터베이스 초기화 (feature/database-init)
+    - scripts/init-db.sql 작성 (algoway-old에서 이식)
+    - scripts/seed-db.js 작성 (더미 데이터)
+    - PostGIS 확장 활성화 확인
+    - 12개 테이블 생성 및 트리거 설정
+
+  3. 인증 API 구현 (feature/auth)
+    - src/routes/auth.js (10개 엔드포인트)
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/services/emailService.js
+    - src/middlewares/auth.js (JWT 인증)
+    - algoway-old 코드 이식
+
+  4. 나머지 API 구현
+    - Users API (프로필, 내역)
+    - Pods API (CRUD, 검색, PostGIS)
+    - Chat API (채팅방, 메시지, Socket.io)
+    - Rating API (평가 작성/조회)
+    - Notification API (알림 조회/설정)
+
+================================================================================
+[2026-02-28] 데이터베이스 스키마 개선 및 초기화
+================================================================================
+
+배경
+----
+algoway-old 프로젝트에서 이미 구현한 데이터베이스 스키마를 분석하고,
+현재 프로젝트의 설계 문서(infra.md, api.md)와 비교하여 개선사항을 반영한다.
+기존 스키마가 매우 잘 설계되어 있으므로 대부분 그대로 사용하되,
+코드 일관성과 성능 최적화를 위한 소소한 개선을 진행한다.
+
+브랜치 전략
+----------
+  - feature/database-init (dev에서 분기)
+
+작업 내용
+---------
+  1. algoway-old/scripts/init-db.sql 분석
+    - 12개 테이블 + PostGIS + UUID 확장
+    - 16개 인덱스 (GIST, 복합 인덱스)
+    - 8개 트리거 (자동 증감, 상태 변경, 채팅방 생성 등)
+    - 2개 정리 함수 (만료된 인증 코드, 리프레시 토큰)
+
+  2. 개선사항 적용
+    - ratings 테이블 컬럼명 일관성 (rater_id → reviewer_id, target_user_id → reviewee_id, score → rating)
+    - notifications 테이블 type 값 업데이트 (pod_starting → pod_started, chat_message → message, system 추가)
+    - notification_settings 테이블 컬럼명 일관성 (pod_starting → pod_started, chat_message → message)
+    - 복합 인덱스 추가: idx_pods_status_departure_time, idx_messages_chat_room_created
+    - ready_status 테이블에 updated_at 트리거 추가
+
+  3. scripts/init-db.sql 생성
+    - 개선된 스키마 반영
+    - IF NOT EXISTS 조건으로 안전한 실행
+    - 트리거 함수 CREATE OR REPLACE로 멱등성 보장
+
+데이터베이스 스키마 (12개 테이블)
+---------------------------------
+  1. users (사용자 계정)
+    - user_id (UUID PK), email, password_hash, nickname, profile_image
+    - user_type (student/employee/others), is_verified, verification_badge
+    - manner_score (1.0~5.0), total_rides
+    - created_at, updated_at
+
+  2. verification_codes (이메일 인증 코드)
+    - code_id (UUID PK), email, code (6자리), verification_type
+    - expires_at (10분 유효), is_used
+
+  3. refresh_tokens (JWT 리프레시 토큰)
+    - token_id (UUID PK), user_id (FK), token, expires_at (7일)
+
+  4. pods (카풀 팟)
+    - pod_id (UUID PK), creator_id (FK)
+    - departure_place_name, departure_location (GEOGRAPHY POINT)
+    - arrival_place_name, arrival_location (GEOGRAPHY POINT)
+    - departure_time, max_participants (2~4), current_participants
+    - vehicle_type (taxi/personal), estimated_cost, cost_per_person, memo
+    - status (recruiting/full/in_progress/completed/cancelled)
+
+  5. pod_participants (팟 참여자 중간 테이블)
+    - participant_id (UUID PK), pod_id (FK), user_id (FK)
+    - UNIQUE(pod_id, user_id)
+
+  6. chat_rooms (채팅방)
+    - chat_room_id (UUID PK), pod_id (FK UNIQUE)
+
+  7. messages (채팅 메시지)
+    - message_id (UUID PK), chat_room_id (FK), sender_id (FK)
+    - message_type (text/location/status/system)
+    - content, location_lat, location_lng, location_address
+
+  8. ready_status (참여자 준비 완료 상태)
+    - status_id (UUID PK), chat_room_id (FK), user_id (FK)
+    - is_ready, updated_at, UNIQUE(chat_room_id, user_id)
+
+  9. ratings (매너 평가) ✨ 개선
+    - rating_id (UUID PK), pod_id (FK)
+    - reviewer_id (FK), reviewee_id (FK) ← 컬럼명 변경
+    - rating (1~5) ← score에서 변경
+    - tags (TEXT[]), comment
+    - UNIQUE(pod_id, reviewer_id, reviewee_id)
+
+  10. favorite_routes (즐겨찾는 경로)
+    - favorite_id (UUID PK), user_id (FK)
+    - departure_place_name, departure_location (GEOGRAPHY POINT)
+    - arrival_place_name, arrival_location (GEOGRAPHY POINT)
+
+  11. notifications (알림) ✨ 개선
+    - notification_id (UUID PK), user_id (FK)
+    - type (pod_joined/pod_full/pod_started/pod_completed/message/rating/system) ← 값 변경
+    - title, message, data (JSONB), is_read
+
+  12. notification_settings (알림 설정) ✨ 개선
+    - settings_id (UUID PK), user_id (FK UNIQUE)
+    - push_enabled, email_enabled
+    - pod_joined, pod_full, pod_started, pod_completed, message, rating ← 컬럼명 변경
+
+인덱스 전략 (18개)
+------------------
+  기본 인덱스 (11개):
+    - idx_users_email ON users(email)
+    - idx_pods_status ON pods(status)
+    - idx_pods_departure_time ON pods(departure_time)
+    - idx_pod_participants_pod_id ON pod_participants(pod_id)
+    - idx_pod_participants_user_id ON pod_participants(user_id)
+    - idx_messages_chat_room_id ON messages(chat_room_id)
+    - idx_messages_created_at ON messages(created_at DESC)
+    - idx_notifications_user_id ON notifications(user_id)
+    - idx_notifications_is_read ON notifications(is_read)
+    - idx_verification_codes_email ON verification_codes(email)
+    - idx_verification_codes_expires_at ON verification_codes(expires_at)
+
+  지리 인덱스 (2개):
+    - idx_pods_departure_location ON pods USING GIST(departure_location)
+    - idx_pods_arrival_location ON pods USING GIST(arrival_location)
+
+  복합 인덱스 (2개) ✨ 개선:
+    - idx_pods_status_departure_time ON pods(status, departure_time) ← 추가
+    - idx_messages_chat_room_created ON messages(chat_room_id, created_at DESC) ← 추가
+
+트리거 구현 (9개)
+-----------------
+  1. update_users_updated_at
+    - users.updated_at 자동 업데이트
+
+  2. update_pods_updated_at
+    - pods.updated_at 자동 업데이트
+
+  3. update_notification_settings_updated_at
+    - notification_settings.updated_at 자동 업데이트
+
+  4. update_ready_status_updated_at ✨ 개선
+    - ready_status.updated_at 자동 업데이트 (추가)
+
+  5. on_pod_participant_added
+    - 팟 참여 시 current_participants 증가
+    - 정원 도달 시 status → 'full'
+
+  6. on_pod_participant_removed
+    - 팟 나가기 시 current_participants 감소
+    - status 'full' → 'recruiting' 전환
+
+  7. on_rating_added
+    - 평가 등록 시 users.manner_score 평균 재계산
+
+  8. on_pod_completed
+    - 팟 완료 시 참여자 전원의 total_rides 증가
+
+  9. on_pod_created
+    - 팟 생성 시 chat_rooms 자동 생성
+    - 방장을 pod_participants에 자동 추가
+
+  10. on_user_created
+    - 회원가입 시 notification_settings 자동 생성
+
+정리 함수 (2개)
+---------------
+  1. cleanup_expired_verification_codes()
+    - 만료 1일 경과 인증 코드 삭제
+    - cron job으로 실행 권장
+
+  2. cleanup_expired_refresh_tokens()
+    - 만료된 리프레시 토큰 삭제
+
+설계 결정 사항
+--------------
+  - 컬럼명 일관성 우선:
+    * API 문서(api.md), 코드(constants.js)와 용어 통일
+    * reviewer/reviewee, rating 용어 사용
+
+  - 복합 인덱스 추가 근거:
+    * 팟 목록 조회: WHERE status = X ORDER BY departure_time (cover index)
+    * 메시지 페이지네이션: WHERE chat_room_id = X ORDER BY created_at DESC (cover index)
+
+  - 트리거 자동화:
+    * current_participants, manner_score, total_rides 등 집계 값 자동 계산
+    * 앱 로직 단순화, 데이터 일관성 보장
+
+  - GEOGRAPHY(POINT, 4326):
+    * WGS84 좌표계 (GPS 표준)
+    * ST_Distance() 결과가 미터 단위로 반환 (직관적)
+
+  - IF NOT EXISTS, CREATE OR REPLACE:
+    * 멱등성 보장 → 스크립트 여러 번 실행해도 안전
+
+Supabase 배포 방법
+------------------
+  1. Supabase Dashboard 접속
+    - https://app.supabase.com/project/{project-id}/sql
+
+  2. SQL Editor에서 실행
+    - scripts/init-db.sql 내용 복사 & 붙여넣기
+    - Run 버튼 클릭
+
+  3. 검증
+    - Table Editor에서 12개 테이블 확인
+    - Database > Index에서 18개 인덱스 확인
+    - Database > Functions에서 트리거 함수 확인
+
+  4. 정리 함수 스케줄링 (선택)
+    - pg_cron 확장 사용 (Supabase Pro 이상)
+    ```sql
+    SELECT cron.schedule(
+      'cleanup-verification-codes',
+      '0 3 * * *',  -- 매일 03:00
+      'SELECT cleanup_expired_verification_codes();'
+    );
+    
+    SELECT cron.schedule(
+      'cleanup-refresh-tokens',
+      '0 4 * * *',  -- 매일 04:00
+      'SELECT cleanup_expired_refresh_tokens();'
+    );
+    ```
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/database-init → dev 머지
+
+  2. Supabase 배포
+    - SQL Editor에서 init-db.sql 실행
+    - 테이블 생성 확인
+
+  3. 인증 API 구현 (feature/auth)
+    - algoway-old 코드 이식
+    - src/routes/auth.js (10개 엔드포인트)
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/middlewares/auth.js
+
+  4. 데이터베이스 연결 테스트
+    - server.js 실행
+    - Health check 확인
+    - PostgreSQL, Redis 연결 확인
+
+================================================================================
+[2026-02-28] 데이터베이스 케이스 매핑 레이어 추가
+================================================================================
+
+배경
+----
+Supabase에 init-db.sql을 실행하고 나니, 데이터베이스는 snake_case(user_id,
+created_at)를 사용하지만 API 문서와 JavaScript 코드는 camelCase(userId,
+createdAt)를 사용하여 필드명이 일치하지 않는 문제가 발생했다.
+
+Node.js + PostgreSQL 환경에서의 네이밍 규칙은 다음과 같다:
+  - PostgreSQL (데이터베이스): snake_case (표준)
+  - JavaScript (코드/API): camelCase (표준)
+  - 해결책: 자동 변환 레이어 추가
+
+이는 Node.js 생태계의 베스트 프랙티스이며, TypeORM, Prisma, Sequelize 등
+모든 주요 ORM이 이 방식을 채택하고 있다.
+
+브랜치 전략
+----------
+  - feature/database-case-mapping (dev에서 분기)
+
+작업 내용
+---------
+  1. 케이스 변환 유틸리티 추가 (src/utils/caseConverter.js)
+    - toCamelCase(str): snake_case → camelCase (예: user_id → userId)
+    - toSnakeCase(str): camelCase → snake_case (예: userId → user_id)
+    - keysToCamel(obj): 객체의 모든 키를 camelCase로 변환 (재귀적)
+    - keysToSnake(obj): 객체의 모든 키를 snake_case로 변환 (재귀적)
+
+  2. database.js 개선
+    - query() 함수: 쿼리 결과를 자동으로 camelCase로 변환
+    - transaction() 함수: 트랜잭션 내 모든 쿼리 결과 자동 변환
+    - keysToCamel, keysToSnake export: Repository에서 직접 사용 가능
+
+네이밍 규칙 정리
+----------------
+  PostgreSQL (snake_case):
+    - user_id, password_hash, created_at, updated_at
+    - departure_location, arrival_location
+    - is_verified, is_ready, is_read
+    - max_participants, current_participants
+    - reviewer_id, reviewee_id
+
+  JavaScript (camelCase):
+    - userId, passwordHash, createdAt, updatedAt
+    - departureLocation, arrivalLocation
+    - isVerified, isReady, isRead
+    - maxParticipants, currentParticipants
+    - reviewerId, revieweeId
+
+  변환 예시:
+    DB 결과: { user_id: 'uuid', created_at: '2026-02-28' }
+    ↓ keysToCamel()
+    JS 객체: { userId: 'uuid', createdAt: '2026-02-28' }
+
+사용 예시
+---------
+  1. 일반 쿼리 (자동 변환)
+    ```javascript
+    const { query } = require('../config/database');
+    
+    // SQL은 snake_case 사용
+    const result = await query(
+      'SELECT user_id, email, created_at FROM users WHERE email = $1',
+      ['user@example.com']
+    );
+    
+    // 결과는 자동으로 camelCase로 변환됨
+    console.log(result.rows[0].userId);      // ✅ 'uuid'
+    console.log(result.rows[0].createdAt);   // ✅ '2026-02-28'
+    ```
+
+  2. 트랜잭션 (자동 변환)
+    ```javascript
+    const { transaction } = require('../config/database');
+    
+    const result = await transaction(async (client) => {
+      const user = await client.query(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *',
+        ['user@example.com', 'hash']
+      );
+      
+      // 결과 자동 변환
+      return user.rows[0];  // { userId: 'uuid', email: '...', passwordHash: 'hash' }
+    });
+    ```
+
+  3. INSERT/UPDATE 시 수동 변환 (필요 시)
+    ```javascript
+    const { query, keysToSnake } = require('../config/database');
+    
+    const userData = {
+      email: 'user@example.com',
+      passwordHash: 'hash',
+      userType: 'student'
+    };
+    
+    // camelCase → snake_case 변환
+    const dbData = keysToSnake(userData);
+    // { email: '...', password_hash: 'hash', user_type: 'student' }
+    
+    // 또는 직접 snake_case로 작성 (권장)
+    await query(
+      'INSERT INTO users (email, password_hash, user_type) VALUES ($1, $2, $3)',
+      [userData.email, userData.passwordHash, userData.userType]
+    );
+    ```
+
+설계 결정 사항
+--------------
+  - DB 스키마는 snake_case 유지:
+    * PostgreSQL 표준 컨벤션
+    * 인덱스, 트리거 등 DB 레벨 로직과 일관성
+
+  - API 응답은 camelCase 사용:
+    * JavaScript 표준 컨벤션
+    * api.md에 명시된 응답 형식 준수
+
+  - 자동 변환 레이어:
+    * 쿼리 결과는 자동으로 camelCase 변환
+    * INSERT/UPDATE는 SQL에서 직접 snake_case 사용 (명시적)
+    * 성능 오버헤드 최소 (단순 문자열 변환)
+
+  - Repository 패턴 적용:
+    * Service → Repository: camelCase 객체 전달
+    * Repository → DB: SQL에서 snake_case 사용
+    * DB → Repository: 자동 camelCase 변환
+    * Repository → Service: camelCase 객체 반환
+
+장점
+----
+  1. 코드 일관성: JavaScript는 camelCase, SQL은 snake_case
+  2. 타입 안정성: TypeScript 도입 시 인터페이스와 DB 컬럼 자동 매핑
+  3. 유지보수성: 컨벤션 명확, 혼란 최소화
+  4. 확장성: ORM 도입 시에도 동일한 패턴 사용
+
+다음 단계 (예정)
+----------------
+  1. 인증 API 구현 (feature/auth) ✅ 완료
+    - algoway-old 코드 이식 및 케이스 변환 적용
+    - 회원가입, 로그인, 이메일 인증, 토큰 갱신, 로그아웃
+    - 테스팅 문서 작성 (docs/testing-auth.md)
+
+  2. 사용자 API 구현 (feature/users)
+    - src/routes/users.js, userController.js, userService.js
+    - 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로
+    - 테스팅 문서 작성 (docs/testing-users.md)
+
+  3. 팟 API 구현 (feature/pods)
+    - src/routes/pods.js, podController.js, podService.js
+    - 팟 생성, 검색, 참여, 나가기, 상태 변경
+    - PostGIS 지리 쿼리 활용
+    - 테스팅 문서 작성 (docs/testing-pods.md)
+
+  4. 채팅 API 구현 (feature/chat)
+    - src/routes/chat.js, chatController.js, chatService.js
+    - 채팅방 목록, 메시지 조회/전송, 준비 상태
+    - Socket.io 연동 (실시간 메시지)
+    - 테스팅 문서 작성 (docs/testing-chat.md)
+
+================================================================================
+[2026-02-28] 인증 API 구현 및 케이스 변환 적용
+================================================================================
+
+배경
+----
+algoway-old 프로젝트에서 이미 구현된 인증 API를 새 프로젝트로 이식하면서,
+앞서 구현한 데이터베이스 케이스 변환 레이어(snake_case ↔ camelCase)를 실제로
+적용하여 완전한 인증 시스템을 구축했다.
+
+브랜치 전략
+----------
+  작업 브랜치: feature/auth
+  기반 브랜치: dev
+
+작업 내용
+---------
+1. 인증 관련 미들웨어 구현
+   - src/middlewares/errorHandler.js: 전역 에러 핸들러 및 404 핸들러
+   - src/middlewares/validator.js: express-validator 기반 입력 검증
+   - src/middlewares/auth.js: JWT 인증 미들웨어 (authenticateToken, requireVerified, optionalAuth)
+
+2. 이메일 서비스 구현
+   - src/services/emailService.js: Nodemailer 기반 이메일 전송
+   - 개발 환경: Ethereal Email (테스트용)
+   - 프로덕션 환경: 실제 SMTP 서버
+   - 인증 코드 이메일, 환영 이메일 템플릿
+
+3. 인증 서비스 구현 (케이스 변환 적용)
+   - src/services/authService.js: 핵심 비즈니스 로직
+   - 회원가입: bcrypt 해싱, 이메일 중복 체크
+   - 로그인: 비밀번호 검증, JWT 토큰 발급
+   - 인증 코드: 6자리 랜덤 코드 생성 및 검증
+   - 토큰 갱신: Refresh Token 교체
+   - 로그아웃: Refresh Token 삭제
+   - **케이스 변환**: database.js의 자동 변환 기능 활용
+     * SQL 쿼리는 snake_case (user_id, created_at)
+     * 서비스 레이어는 camelCase (userId, createdAt)
+     * 변환 레이어가 자동으로 처리
+
+4. 컨트롤러 및 라우트 구현
+   - src/controllers/authController.js: HTTP 요청/응답 처리
+   - src/routes/auth.js: 6개 엔드포인트 정의
+     * POST /v1/auth/signup (회원가입)
+     * POST /v1/auth/login (로그인)
+     * POST /v1/auth/verify/send (인증 코드 발송)
+     * POST /v1/auth/verify/confirm (인증 코드 확인)
+     * POST /v1/auth/refresh (토큰 갱신)
+     * POST /v1/auth/logout (로그아웃)
+
+5. Express 앱 통합
+   - src/app.js: auth 라우트 등록, 에러 핸들러 통합
+   - Health check 엔드포인트 유지
+
+6. 테스팅 문서 작성
+   - docs/testing-auth.md: 인증 API 테스트 가이드
+   - curl, REST Client 예시 제공
+   - 3가지 테스트 시나리오 (정상 흐름, 토큰 갱신, 에러 케이스)
+   - 개발 환경 이메일 확인 방법 (Ethereal URL)
+   - 디버깅 팁 및 다음 단계 안내
+
+구현된 엔드포인트 (6개)
+-----------------------
+  1. POST /v1/auth/signup
+    - 입력: email, password, userType, nickname
+    - 출력: userId, email, nickname, userType, isVerified
+    - 검증: 이메일 중복, 비밀번호 강도, 닉네임 형식
+    - 후처리: 환영 이메일 전송 (비동기)
+
+  2. POST /v1/auth/login
+    - 입력: email, password
+    - 출력: accessToken, refreshToken, user 정보
+    - 검증: 이메일/비밀번호 일치 여부
+    - 처리: bcrypt 비교, JWT 토큰 생성, Refresh Token DB 저장
+
+  3. POST /v1/auth/verify/send
+    - 입력: email, verificationType (student|employee|others)
+    - 출력: success, expiresIn
+    - 처리: 6자리 랜덤 코드 생성, DB 저장, 이메일 전송
+    - 만료 시간: 10분
+
+  4. POST /v1/auth/verify/confirm
+    - 인증 필요: Access Token (Bearer)
+    - 입력: email, verificationCode
+    - 출력: isVerified, badge, verifiedAt
+    - 처리: 코드 검증, is_used 업데이트, users 테이블 인증 상태 변경
+    - 뱃지: "학생 인증", "직장인 인증", "일반 인증"
+
+  5. POST /v1/auth/refresh
+    - 입력: refreshToken
+    - 출력: 새로운 accessToken, refreshToken
+    - 처리: Refresh Token 검증, 기존 토큰 삭제, 새 토큰 생성
+
+  6. POST /v1/auth/logout
+    - 인증 필요: Access Token (Bearer)
+    - 입력: refreshToken
+    - 출력: success
+    - 처리: Refresh Token DB에서 삭제
+
+케이스 변환 적용 사례
+--------------------
+authService.js에서 케이스 변환이 자동으로 처리되는 예시:
+
+  예시 1: 회원가입 (signup)
+    SQL 쿼리:
+      INSERT INTO users (email, password_hash, user_type, nickname)
+      RETURNING user_id, email, nickname, user_type, is_verified, created_at
+
+    반환값 (자동 변환):
+      {
+        userId: "550e8400-e29b-41d4-a716-446655440000",
+        email: "test@test.com",
+        nickname: "테스터",
+        userType: "student",
+        isVerified: false,
+        createdAt: "2026-02-28T12:00:00.000Z"
+      }
+
+    → database.js의 query() 함수가 자동으로 keysToCamel() 적용
+
+  예시 2: 로그인 (login)
+    SQL 쿼리:
+      SELECT user_id, email, password_hash, nickname, user_type, 
+             is_verified, verification_badge
+      FROM users WHERE email = $1
+
+    반환값 (자동 변환):
+      {
+        userId: "...",
+        email: "...",
+        passwordHash: "...",  // password_hash → passwordHash
+        nickname: "...",
+        userType: "...",      // user_type → userType
+        isVerified: false,    // is_verified → isVerified
+        verificationBadge: null  // verification_badge → verificationBadge
+      }
+
+    → 서비스 레이어에서 user.passwordHash, user.userId 등 camelCase로 접근 가능
+
+  예시 3: 인증 코드 확인 (confirmVerificationCode)
+    SQL 쿼리:
+      SELECT code_id, verification_type
+      FROM verification_codes
+      WHERE email = $1 AND code = $2 AND is_used = FALSE
+
+    반환값 (자동 변환):
+      {
+        codeId: "...",           // code_id → codeId
+        verificationType: "..."  // verification_type → verificationType
+      }
+
+    → 트랜잭션 내부 쿼리도 자동 변환 적용됨
+
+설계 결정 사항
+--------------
+  - 비밀번호 해싱: bcryptjs (salt rounds: 10)
+    이유: bcrypt는 Rainbow Table 공격에 강하고 계산 비용 조절 가능
+
+  - JWT 토큰 분리: Access Token (1시간), Refresh Token (7일)
+    이유: Access Token 탈취 시 피해 최소화, Refresh Token으로 갱신 가능
+
+  - 인증 코드: 6자리 랜덤 숫자 (10분 만료)
+    이유: 사용자 입력 편의성, 10분은 이메일 확인에 충분한 시간
+
+  - 이메일 서비스: Nodemailer + Ethereal (개발), SMTP (프로덕션)
+    이유: 개발 환경에서 실제 이메일 전송 없이 테스트 가능
+
+  - 에러 핸들링: 전역 에러 핸들러 + asyncHandler 래퍼
+    이유: try-catch 보일러플레이트 제거, 일관된 에러 응답 형식
+
+  - 검증: express-validator 미들웨어
+    이유: 선언적 검증, 에러 메시지 자동 생성, 보안 기능 내장
+
+  - 케이스 변환: 자동 변환 (수동 변환 불필요)
+    이유: 개발자 실수 방지, 일관된 네이밍 규칙, 코드 가독성 향상
+
+테스트 방법
+-----------
+docs/testing-auth.md에 상세한 테스트 가이드 제공.
+
+주요 테스트 시나리오:
+  1. 회원가입 → 로그인 → 이메일 인증
+  2. 토큰 만료 후 갱신
+  3. 에러 케이스 (중복 이메일, 잘못된 비밀번호, 만료 코드 등)
+
+개발 환경 이메일 확인 방법:
+  docker logs algoway-backend | grep "Preview URL"
+  → Ethereal Email URL로 인증 코드 확인
+
+검증 결과 (예상 - 실제 테스트 필요)
+----------------------------------
+  ✅ 회원가입 API: 중복 이메일 체크, 비밀번호 검증 동작 예상
+  ✅ 로그인 API: JWT 토큰 발급, Refresh Token DB 저장 예상
+  ✅ 이메일 인증: Ethereal Email로 코드 전송 예상
+  ✅ 코드 검증: 인증 완료 시 users.is_verified 업데이트 예상
+  ✅ 토큰 갱신: Refresh Token 교체 동작 예상
+  ✅ 로그아웃: Refresh Token 삭제 예상
+  ✅ 케이스 변환: snake_case ↔ camelCase 자동 변환 정상 동작 예상
+  ✅ 에러 핸들링: 중복 이메일(409), 잘못된 비밀번호(401), 만료 토큰(401) 등 에러 응답 예상
+
+주요 개선 사항 (algoway-old 대비)
+----------------------------------
+  1. 케이스 변환 레이어 적용
+    - algoway-old: 수동 변환 (user.user_id, user.is_verified)
+    - algoway: 자동 변환 (user.userId, user.isVerified)
+    - 장점: 개발자 실수 방지, 일관된 네이밍
+
+  2. 에러 핸들러 개선
+    - algoway-old: 기본 에러 핸들러
+    - algoway: PostgreSQL 에러, JWT 에러, 개발/프로덕션 분기
+    - 장점: 더 명확한 에러 메시지, 보안 향상
+
+  3. 로깅 강화
+    - algoway-old: console.log
+    - algoway: winston logger (파일 저장, 레벨 분리)
+    - 장점: 프로덕션 로그 관리 용이
+
+  4. 문서화
+    - algoway-old: 문서 없음
+    - algoway: API 명세(api.md), 테스팅 가이드(testing-auth.md), 의사결정 로그(chat.log)
+    - 장점: 팀 협업 및 유지보수 용이
+
+다음 단계
+---------
+  1. 인증 API 실제 테스트 및 검증
+    - 서버 실행 후 testing-auth.md의 시나리오 실행
+    - 발견된 버그 수정
+
+  2. feature/auth → dev 머지
+    - 커밋 메시지: "feat(auth): implement authentication API with case conversion"
+    - PR 생성 및 코드 리뷰
+
+  3. 사용자 API 구현 (feature/users)
+    - 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로
+    - Repository 패턴 도입 고려
+
+  4. 팟 API 구현 (feature/pods)
+    - PostGIS 지리 쿼리 활용
+    - 복잡한 검색 조건 처리
+
+
