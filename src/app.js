@@ -38,7 +38,7 @@ app.get('/health', (req, res) => {
 
 // API 라우트
 app.use('/v1/auth', require('./routes/auth'));
-// app.use('/v1/users', require('./routes/users'));
+app.use('/v1/users', require('./routes/users'));
 // app.use('/v1/pods', require('./routes/pods'));
 // app.use('/v1/chat', require('./routes/chat'));
 // app.use('/v1/ratings', require('./routes/ratings'));

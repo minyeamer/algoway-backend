@@ -1758,3 +1758,62 @@ logout은 access token 인증이 불필요:
   파일이 손상되는 사고가 발생.
   git checkout으로 복구 후 에디터 도구(replace_string_in_file)로 재작성.
 
+================================================================================
+[2026-02-28] dev→main 병합 및 feature/users 기획
+================================================================================
+
+작업 내용
+---------
+  git checkout main && git merge dev --no-ff -m "chore(release): merge feature/auth to main"
+  git push origin main 실행하여 인증 기능 운영 브랜치에 반영 (커밋 8ee13a9)
+  이후 다음 기능 개발 순서 결정: users → pods → chat → ratings → notifications → location
+
+설계 결정 사항
+--------------
+  feature/users 브랜치는 pods 기능 완성 때까지 유지 (삭제 금지)
+  dev와 주기적으로 변경사항 동기화하면서 진행
+
+================================================================================
+[2026-02-28] 사용자 API 구현 (feature/users)
+================================================================================
+
+배경
+----
+  인증 API 완료 후 다음 도메인인 Users API를 구현한다.
+  users 테이블을 중심으로 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로를 다룬다.
+
+브랜치 전략
+-----------
+  feature/users 브랜치를 dev에서 분기하여 작업
+  pods 기능 완성 시점에 feature/users 삭제 및 dev→main 반영
+
+구현된 엔드포인트 (7개)
+-----------------------
+  GET  /v1/users/me                          내 프로필 조회
+  PATCH /v1/users/me                         프로필 수정 (nickname, profileImage URL)
+  GET  /v1/users/:userId                     공개 프로필 조회 (email 제외)
+  GET  /v1/users/me/rides                    탑승 내역 페이지네이션
+  GET  /v1/users/me/favorites                즐겨찾는 경로 목록
+  POST /v1/users/me/favorites                즐겨찾는 경로 추가
+  DELETE /v1/users/me/favorites/:favoriteId  즐겨찾는 경로 삭제
+
+파일 구조
+---------
+  src/services/userService.js     — DB 쿼리 로직 (7개 함수)
+  src/controllers/userController.js — HTTP 요청/응답 처리
+  src/routes/users.js             — 라우트 정의 (고정경로 /me/* 먼저, /:userId 마지막)
+  src/middlewares/validator.js    — updateProfileValidation, addFavoriteValidation 추가
+  src/app.js                      — /v1/users 라우트 주석 해제
+
+설계 결정 사항
+--------------
+  프로필 이미지: Supabase Storage 연동 대신 URL 문자열로 처리 (Storage는 추후)
+  즐겨찾는 경로 좌표: PostGIS ST_Point(lng, lat) INSERT, ST_X/ST_Y로 SELECT
+  탑승 내역: pod_participants JOIN pods JOIN users(creator) 쿼리, 페이지네이션 적용
+  GET /:userId는 /me/* 라우트와 충돌하지 않도록 라우트 파일 맨 마지막에 선언
+  공개 프로필에서 email, password_hash 필드 제외
+
+다음 단계
+---------
+  feature/users → dev 병합 후 feature/pods 시작
+
