@@ -605,3 +605,157 @@ Redis + Backend만 Docker로 실행한다.
     - Chat API (Socket.io)
     - Rating API
     - Notification API
+
+================================================================================
+[2026-02-28] 프로젝트 스캐폴딩 및 핵심 모듈 구현
+================================================================================
+
+배경
+----
+Docker 인프라 구성 완료 후, 실제 백엔드 서버의 기본 구조를 구축한다.
+infra.md에 설계된 폴더 구조를 실제로 생성하고, 핵심 모듈(DB 연결, Redis,
+Logger, JWT, 응답 헬퍼)을 구현한다.
+
+브랜치 전략
+----------
+  - feature/project-structure (dev에서 분기)
+
+작업 내용
+---------
+  1. 서버 진입점 (server.js)
+    - Express 앱 로드 및 HTTP 서버 시작
+    - Graceful shutdown 구현 (SIGTERM, SIGINT)
+    - Unhandled rejection/exception 처리
+
+  2. Express 앱 설정 (src/app.js)
+    - 미들웨어 등록: helmet, cors, express.json, express.urlencoded
+    - Health check 엔드포인트 (GET /health)
+    - 404 처리
+    - 전역 에러 핸들러 (개발 환경에서 스택 트레이스 노출)
+
+  3. 데이터베이스 연결 (src/config/database.js)
+    - Supabase 클라이언트 초기화 (Realtime, Auth, Storage 등)
+    - PostgreSQL Pool 연결 (Transaction Pooler Port 6543)
+    - query() 헬퍼 함수 (쿼리 로깅, 실행 시간 측정)
+    - transaction() 헬퍼 함수 (BEGIN, COMMIT, ROLLBACK)
+
+  4. Redis 연결 (src/config/redis.js)
+    - Redis 클라이언트 초기화 및 연결
+    - Graceful shutdown 지원
+    - 헬퍼 함수: get, set, del, exists, expire, ttl
+    - JSON 직렬화/역직렬화: setJSON, getJSON
+
+  5. 상수 정의 (src/config/constants.js)
+    - 사용자 유형, 팟 상태, 메시지 타입, 알림 타입
+    - 에러 코드 (UNAUTHORIZED, VALIDATION_ERROR, POD_FULL 등)
+    - JWT 만료 시간 (Access 1h, Refresh 7d)
+    - Rate Limiting 설정 (일반 100회/10분, 로그인 5회/10분)
+    - 페이지네이션 기본값 (page=1, limit=20, max=100)
+    - 지리 검색 반경 (기본 5km, 최대 20km)
+
+  6. 로거 (src/utils/logger.js)
+    - Winston 기반 로거
+    - 개발 환경: 콘솔 출력 (색상 포함)
+    - 운영 환경: 파일 저장 (logs/error.log, logs/combined.log)
+    - 로그 레벨: 개발=debug, 운영=info
+
+  7. 응답 헬퍼 (src/utils/response.js)
+    - successResponse(res, data, statusCode): 성공 응답
+    - errorResponse(res, code, message, statusCode, details): 에러 응답
+    - paginatedResponse(res, items, total, page, limit): 페이지네이션 응답
+    - AppError 클래스: 커스텀 에러 (code, statusCode, details)
+
+  8. JWT 유틸리티 (src/utils/jwt.js)
+    - generateAccessToken(payload): Access Token 생성 (1시간)
+    - generateRefreshToken(payload): Refresh Token 생성 (7일)
+    - generatePasswordResetToken(payload): 비밀번호 재설정 토큰 (1시간)
+    - verifyAccessToken(token): Access Token 검증
+    - verifyRefreshToken(token): Refresh Token 검증
+    - verifyPasswordResetToken(token): 비밀번호 재설정 토큰 검증
+
+  9. 폴더 구조 생성
+    - src/middlewares/ (auth, errorHandler, validator, rateLimit)
+    - src/routes/ (auth, users, pods, chat, ratings, notifications)
+    - src/controllers/ (도메인별 컨트롤러)
+    - src/services/ (비즈니스 로직)
+    - src/repositories/ (DB CRUD 추상화)
+    - src/websocket/ (Socket.io 핸들러)
+    - scripts/ (init-db.sql, seed-db.js)
+    - tests/ (unit, integration, fixtures)
+
+    각 폴더에 .gitkeep 추가 (빈 디렉토리 git 추적)
+
+파일 구조
+---------
+  생성된 파일 (16개):
+    server.js                       # HTTP 서버 진입점
+    src/app.js                      # Express 앱 설정
+    src/config/database.js          # PostgreSQL + Supabase 연결
+    src/config/redis.js             # Redis 클라이언트
+    src/config/constants.js         # 상수 정의
+    src/utils/logger.js             # Winston 로거
+    src/utils/response.js           # 응답 헬퍼
+    src/utils/jwt.js                # JWT 유틸리티
+    src/middlewares/.gitkeep
+    src/routes/.gitkeep
+    src/controllers/.gitkeep
+    src/services/.gitkeep
+    src/repositories/.gitkeep
+    src/websocket/.gitkeep
+    scripts/.gitkeep
+    tests/.gitkeep
+
+설계 결정 사항
+--------------
+  - Pool 기반 PostgreSQL 연결:
+    * max: 20 (최대 연결 수)
+    * idleTimeoutMillis: 30000 (30초)
+    * connectionTimeoutMillis: 5000 (5초)
+    * Transaction Pooler (Port 6543) 사용
+
+  - Redis 헬퍼 함수:
+    * setJSON/getJSON으로 JSON 직렬화 자동 처리
+    * TTL 옵션으로 캐시 만료 시간 설정 (예: 5분, 1시간)
+
+  - 로거 설정:
+    * 개발 환경: 콘솔 출력 (색상, 타임스탬프, 메타데이터)
+    * 운영 환경: 파일 저장 (JSON 형식, 로테이션 준비)
+
+  - AppError 클래스:
+    * code: ERROR_CODES에 정의된 에러 코드
+    * statusCode: HTTP 상태 코드 (400, 401, 403, 404, 500 등)
+    * details: 추가 정보 (예: 검증 실패 필드 목록)
+
+  - Graceful shutdown:
+    * SIGTERM, SIGINT 시그널 처리
+    * HTTP 서버 종료 → Redis/DB 연결 종료 → 프로세스 종료
+
+  - Envelope 패턴:
+    * 성공: { success: true, data: { ... } }
+    * 실패: { success: false, error: { code, message, details? } }
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/project-structure → dev 머지
+
+  2. 데이터베이스 초기화 (feature/database-init)
+    - scripts/init-db.sql 작성 (algoway-old에서 이식)
+    - scripts/seed-db.js 작성 (더미 데이터)
+    - PostGIS 확장 활성화 확인
+    - 12개 테이블 생성 및 트리거 설정
+
+  3. 인증 API 구현 (feature/auth)
+    - src/routes/auth.js (10개 엔드포인트)
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/services/emailService.js
+    - src/middlewares/auth.js (JWT 인증)
+    - algoway-old 코드 이식
+
+  4. 나머지 API 구현
+    - Users API (프로필, 내역)
+    - Pods API (CRUD, 검색, PostGIS)
+    - Chat API (채팅방, 메시지, Socket.io)
+    - Rating API (평가 작성/조회)
+    - Notification API (알림 조회/설정)
