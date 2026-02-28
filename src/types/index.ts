@@ -51,6 +51,81 @@ export interface VerifyResult {
   verifiedAt: string;
 }
 
+// ─── 팟 ───────────────────────────────────────────────────────────────────────
+
+export type PodStatus = 'recruiting' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+export type VehicleType = 'taxi' | 'personal';
+
+export interface PodPlace {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface PodCreatorInfo {
+  userId: string;
+  nickname: string;
+  verificationBadge: string | null;
+}
+
+export interface PodCreatorDetail extends PodCreatorInfo {
+  profileImage: string | null;
+  mannerScore: string;
+}
+
+export interface PodParticipantInfo {
+  userId: string;
+  nickname: string;
+  profileImage: string | null;
+  verificationBadge: string | null;
+  joinedAt: Date;
+}
+
+export interface PodSummary {
+  podId: string;
+  departurePlace: PodPlace;
+  arrivalPlace: PodPlace;
+  departureTime: Date;
+  maxParticipants: number;
+  currentParticipants: number;
+  vehicleType: VehicleType;
+  estimatedCost: number | null;
+  costPerPerson: number | null;
+  distance?: number;
+  status: PodStatus;
+  creator: PodCreatorInfo;
+  createdAt: Date;
+}
+
+export interface PodDetail extends Omit<PodSummary, 'creator'> {
+  memo: string | null;
+  chatRoomId: string | null;
+  creator: PodCreatorDetail;
+  participants: PodParticipantInfo[];
+}
+
+export interface CreatePodInput {
+  departurePlace: PodPlace;
+  arrivalPlace: PodPlace;
+  departureTime: string;
+  maxParticipants: number;
+  vehicleType: VehicleType;
+  estimatedCost?: number;
+  memo?: string;
+}
+
+export interface JoinPodResult {
+  podId: string;
+  chatRoomId: string | null;
+  currentParticipants: number;
+  maxParticipants: number;
+}
+
+export interface UpdatePodStatusResult {
+  podId: string;
+  status: PodStatus;
+}
+
 // ─── 즐겨찾는 경로 ────────────────────────────────────────────────────────────
 
 export interface PlaceInfo {
