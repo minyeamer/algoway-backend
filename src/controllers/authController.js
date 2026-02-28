@@ -57,14 +57,12 @@ const sendVerificationCode = async (req, res, next) => {
 /**
  * 이메일 인증 코드 확인
  * POST /v1/auth/verify/confirm
- * (인증된 사용자만 접근 가능)
  */
 const confirmVerificationCode = async (req, res, next) => {
   try {
     const { email, verificationCode } = req.body;
-    const userId = req.user.userId; // camelCase로 변환된 상태
 
-    const result = await authService.confirmVerificationCode(userId, email, verificationCode);
+    const result = await authService.confirmVerificationCode(email, verificationCode);
 
     return successResponse(res, result, '인증이 완료되었습니다.');
   } catch (error) {

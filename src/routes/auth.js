@@ -44,11 +44,9 @@ router.post(
 /**
  * 이메일 인증 코드 확인
  * POST /v1/auth/verify/confirm
- * (인증된 사용자만 접근 가능)
  */
 router.post(
   '/verify/confirm',
-  authenticateToken,
   confirmVerificationValidation,
   asyncHandler(authController.confirmVerificationCode)
 );

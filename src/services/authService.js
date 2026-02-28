@@ -48,6 +48,22 @@ const signup = async (email, password, userType, nickname) => {
 
   const user = result.rows[0]; // 이미 camelCase로 변환됨
 
+  // 이메일 인증 코드 자동 발송
+  const code = generateVerificationCode();
+  const expiresAt = new Date();
+  expiresAt.setMinutes(expiresAt.getMinutes() + VERIFICATION_CODE.EXPIRY_MINUTES);
+
+  await query(
+    `INSERT INTO verification_codes (email, code, verification_type, expires_at)
+     VALUES ($1, $2, $3, $4)`,
+    [email, code, userType, expiresAt]
+  );
+
+  // 인증 코드 이메일 전송
+  sendVerificationEmail(email, code, userType).catch(err => {
+    logger.error('인증 코드 이메일 전송 실패:', err);
+  });
+
   // 환영 이메일 전송 (비동기, 실패해도 괜찮음)
   sendWelcomeEmail(email, nickname).catch(err => {
     logger.error('환영 이메일 전송 실패:', err);
@@ -93,6 +109,14 @@ const login = async (email, password) => {
     const error = new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     error.code = ERROR_CODES.INVALID_CREDENTIALS;
     error.statusCode = 401;
+    throw error;
+  }
+
+  // 이메일 인증 확인
+  if (!user.isVerified) {
+    const error = new Error('이메일 인증이 필요합니다. 회원가입 시 발송된 인증 코드를 확인해주세요.');
+    error.code = ERROR_CODES.FORBIDDEN;
+    error.statusCode = 403;
     throw error;
   }
 
@@ -154,12 +178,11 @@ const sendVerificationCode = async (email, verificationType) => {
 
 /**
  * 인증 코드 확인
- * @param {string} userId - 사용자 ID (UUID)
  * @param {string} email - 이메일
  * @param {string} verificationCode - 인증 코드
  * @returns {Object} 인증 완료 정보
  */
-const confirmVerificationCode = async (userId, email, verificationCode) => {
+const confirmVerificationCode = async (email, verificationCode) => {
   // 유효한 인증 코드 조회 (자동 camelCase 변환)
   const result = await query(
     `SELECT code_id, verification_type
@@ -195,12 +218,12 @@ const confirmVerificationCode = async (userId, email, verificationCode) => {
       [verification.codeId]
     );
 
-    // 사용자 인증 상태 업데이트
+    // 사용자 인증 상태 업데이트 (이메일로 조회)
     await client.query(
       `UPDATE users 
        SET is_verified = TRUE, verification_badge = $1
-       WHERE user_id = $2`,
-      [badge, userId]
+       WHERE email = $2`,
+      [badge, email]
     );
   });
 

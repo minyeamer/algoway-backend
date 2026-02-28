@@ -9,9 +9,9 @@
 
 1. [환경 설정](#1-환경-설정)
 2. [회원가입](#2-회원가입)
-3. [로그인](#3-로그인)
-4. [이메일 인증 코드 발송](#4-이메일-인증-코드-발송)
-5. [이메일 인증 코드 확인](#5-이메일-인증-코드-확인)
+3. [이메일 인증 코드 확인](#3-이메일-인증-코드-확인)
+4. [로그인](#4-로그인)
+5. [이메일 인증 코드 재발송](#5-이메일-인증-코드-재발송)
 6. [토큰 갱신](#6-토큰-갱신)
 7. [로그아웃](#7-로그아웃)
 8. [테스트 시나리오](#8-테스트-시나리오)
@@ -64,6 +64,8 @@ curl http://localhost:3000/health
 POST /v1/auth/signup
 ```
 
+**중요**: 회원가입 시 자동으로 인증 코드가 이메일로 발송됩니다. 인증 완료 후에만 로그인이 가능합니다.
+
 ### 요청 예시 (curl)
 
 ```bash
@@ -102,9 +104,24 @@ Content-Type: application/json
     "nickname": "홍길동",
     "userType": "student",
     "isVerified": false,
-    "verificationRequired": true
-  },
-  "message": "회원가입이 완료되었습니다. 이메일 인증을 진행해주세요."
+    "verificationRequired": true로 발송된 인증 코드를 확인해주세요."
+}
+```
+
+**개발 환경에서 인증 코드 확인**
+
+회원가입 후 서버 로그에서 이메일 미리보기 URL을 확인하세요:
+
+```bash
+docker logs algoway-backend | grep "Preview URL" | tail -1
+```
+
+**로그 예시:**
+```
+📧 Email Preview URL: https://ethereal.email/message/XXXXX
+```
+
+해당 URL을 브라우저에서 열면 전송된 이메일 내용과 인증 코드(6자리 숫자)를 확인할 수 있습니다.message": "회원가입이 완료되었습니다. 이메일 인증을 진행해주세요."
 }
 ```
 
@@ -114,13 +131,88 @@ Content-Type: application/json
 {
   "success": false,
   "error": {
-    "code": "ALREADY_EXISTS",
-    "message": "이미 가입된 이메일입니다."
+    "c이메일 인증 코드 확인
+
+### 엔드포인트
+
+```
+POST /v1/auth/verify/confirm
+```
+
+**중요**: 인증 완료 후에만 로그인이 가능합니다.
+
+### 요청 예시 (curl)
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/verify/confirm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "student@university.ac.kr",
+    "verificationCode": "123456"
+  }'
+```
+
+### 요청 예시 (REST Client)
+
+```http
+POST http://localhost:3000/v1/auth/verify/confirm
+Content-Type: application/json
+
+{
+  "email": "student@university.ac.kr",
+  "verificationCode": "123456"
+}
+```
+
+### 응답 (200 OK)
+
+```json
+{
+  "success": true,
+  "data": {
+    "isVerified": true,
+    "badge": "학생 인증",
+    "verifiedAt": "2026-02-28T12:30:00.000Z"
+  },
+  "message": "인증이 완료되었습니다."
+}
+```
+
+### 에러 응답 (400 Bad Request - 잘못된 코드)
+
+```json
+{
+  "success": 3 Forbidden - 이메일 미인증)
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "이메일 인증이 필요합니다. 회원가입 시 발송된 인증 코드를 확인해주세요."
   }
 }
 ```
 
-### 검증 규칙
+### 토큰 저장
+  "error": {
+    "code": "INVALID_INPUT",
+    "message": "유효하지 않거나 만료된 인증 코드입니다."
+  }
+}
+```
+
+---
+
+## 4. 로그인
+
+### 엔드포인트
+
+```
+POST /v1/auth/login
+```
+
+**중요**: 이메일 인증이 완료된 사용자만 로그인할 수 있습니다. 검증 규칙
 
 - **email**: 올바른 이메일 형식
 - **password**: 최소 8자, 영문+숫자 포함
@@ -129,13 +221,15 @@ Content-Type: application/json
 
 ---
 
-## 3. 로그인
+## 5. 이메일 인증 코드 재발송
 
 ### 엔드포인트
 
 ```
-POST /v1/auth/login
+POST /v1/auth/verify/send
 ```
+
+**Note**: 회원가입 시 자동으로 인증 코드가 발송됩니다. 이 API는 코드를 받지 못했거나 만료된 경우에만 사용하세요.
 
 ### 요청 예시 (curl)
 
@@ -227,97 +321,7 @@ curl -X POST http://localhost:3000/v1/auth/verify/send \
 
 ```http
 POST http://localhost:3000/v1/auth/verify/send
-Content-Type: application/json
-
-{
-  "email": "student@university.ac.kr",
-  "verificationType": "student"
-}
-```
-
-### 응답 (200 OK)
-
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "인증 코드가 발송되었습니다."
-}
-```
-
-### 개발 환경에서 인증 코드 확인
-
-개발 환경에서는 Ethereal Email을 사용하므로, 서버 로그에서 미리보기 URL을 확인하세요:
-
-```bash
-docker logs algoway-backend | grep "Preview URL"
-```
-
-**로그 예시:**
-```
-📧 Email Preview URL: https://ethereal.email/message/XXXXX
-```
-
-해당 URL을 브라우저에서 열면 전송된 이메일 내용과 인증 코드(6자리 숫자)를 확인할 수 있습니다.
-
----
-
-## 5. 이메일 인증 코드 확인
-
-### 엔드포인트
-
-```
-POST /v1/auth/verify/confirm
-```
-
-⚠️ **인증 필요**: Access Token 헤더 필요
-
-### 요청 예시 (curl)
-
-```bash
-curl -X POST http://localhost:3000/v1/auth/verify/confirm \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d '{
-    "email": "student@university.ac.kr",
-    "verificationCode": "123456"
-  }'
-```
-
-### 요청 예시 (REST Client)
-
-```http
-POST http://localhost:3000/v1/auth/verify/confirm
-Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-{
-  "email": "student@university.ac.kr",
-  "verificationCode": "123456"
-}
-```
-
-### 응답 (200 OK)
-
-```json
-{
-  "success": true,
-  "data": {
-    "isVerified": true,
-    "badge": "학생 인증",
-    "verifiedAt": "2026-02-28T12:30:00.000Z"
-  },
-  "message": "인증이 완료되었습니다."
-}
-```
-
-### 에러 응답 (400 Bad Request - 잘못된 코드)
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_INPUT",
+Content-Type: applica재발송되었습니다." "code": "INVALID_INPUT",
     "message": "유효하지 않거나 만료된 인증 코드입니다."
   }
 }
@@ -515,63 +519,57 @@ curl -X POST http://localhost:3000/v1/auth/logout \
 
 #### Step 1: 로그인
 
-```bash
-# ... (위와 동일)
-```
+```bash이메일 인증 → 로그인
 
-#### Step 2: Access Token 만료 대기 (1시간 후)
+#### Step 1: 회원가입
 
 ```bash
-# Access Token 만료 후 API 호출 시도
-curl -X POST http://localhost:3000/v1/auth/verify/confirm \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d '{...}'
-
-# 응답: TOKEN_EXPIRED 에러
-```
-
-#### Step 3: Refresh Token으로 갱신
-
-```bash
-RESPONSE=$(curl -s -X POST http://localhost:3000/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refreshToken": "'"$REFRESH_TOKEN"'"
-  }')
-
-# 새 토큰 저장
-ACCESS_TOKEN=$(echo $RESPONSE | jq -r '.data.accessToken')
-REFRESH_TOKEN=$(echo $RESPONSE | jq -r '.data.refreshToken')
-```
-
-#### Step 4: 새 Access Token으로 API 호출
-
-```bash
-curl -X POST http://localhost:3000/v1/auth/verify/confirm \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -d '{...}'
-```
-
----
-
-### 시나리오 3: 에러 케이스 테스트
-
-#### 중복 이메일 회원가입
-
-```bash
-# 첫 번째 회원가입 성공
 curl -X POST http://localhost:3000/v1/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "duplicate@test.com",
+    "email": "test@university.ac.kr",
     "password": "password123!",
     "userType": "student",
-    "nickname": "중복테스트"
+    "nickname": "테스터"
   }'
+```
 
-# 동일 이메일로 두 번째 회원가입 시도 → 409 에러
+#### Step 2: 서버 로그에서 인증 코드 확인
+
+```bash
+# 서버 로그에서 Ethereal URL 확인
+docker logs algoway-backend | grep "Preview URL" | tail -1
+```
+
+브라우저에서 URL을 열어 6자리 인증 코드 확인
+
+#### Step 3: 이메일 인증
+
+```bash
+# 이메일에서 확인한 코드를 입력 (예: 123456)
+curl -X POST http://localhost:3000/v1/auth/verify/confirm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@university.ac.kr",
+    "verificationCode": "123456"
+  }'
+```
+
+#### Step 4: 로그인 (토큰 저장)
+
+```bash
+RESPONSE=$(curl -s -X POST http://localhost:3000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@university.ac.kr",
+    "password": "password123!"
+  }')
+
+ACCESS_TOKEN=$(echo $RESPONSE | jq -r '.data.accessToken')
+REFRESH_TOKEN=$(echo $RESPONSE | jq -r '.data.refreshToken')
+
+echo "Access Token: $ACCESS_TOKEN"
+echo "Refresh Token: $REFRESH_TOKEN" 이메일로 두 번째 회원가입 시도 → 409 에러
 curl -X POST http://localhost:3000/v1/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
@@ -605,32 +603,84 @@ curl -X POST http://localhost:3000/v1/auth/verify/confirm \
     "email": "test@university.ac.kr",
     "verificationCode": "000000"
   }'
+인증 코드 재발송
 
-# 응답: 400 INVALID_INPUT
+#### Step 1: 회원가입
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test2@university.ac.kr",
+    "password": "password123!",
+    "userType": "student",
+    "nickname": "테스터2"
+  }'
+```
+
+#### Step 2: 인증 코드 재발송 (만료 또는 미수신 시)
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/verify/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test2@university.ac.kr",
+    "verificationType": "student"
+  }'
+
+# 서버 로그에서 Ethereal URL 확인
+docker logs algoway-backend | grep "Preview URL" | tail -1
+```
+
+#### Step 3: 새 인증 코드로 인증
+
+```bash
+curl -X POST http://localhost:3000/v1/auth/verify/confirm \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test2@university.ac.kr",
+    "verificationCode": "654321"
+  }'
 ```
 
 ---
 
-## 디버깅Tips
+### 시나리오 3: 토큰 만료 후 갱신
 
-### 1. 데이터베이스 확인
+#### Step 1: 로그인 (인증 완료된 사용자)
+4: 에러 케이스 테스트
+
+#### 인증 없이 로그인 시도
 
 ```bash
-# Supabase SQL Editor에서 실행
-SELECT user_id, email, nickname, is_verified, verification_badge 
-FROM users 
-ORDER BY created_at DESC 
-LIMIT 5;
+# Step 1: 회원가입
+curl -X POST http://localhost:3000/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "unverified@test.com",
+    "password": "password123!",
+    "userType": "student",
+    "nickname": "미인증사용자"
+  }'
+
+# Step 2: 인증 없이 바로 로그인 시도 → 403 에러
+curl -X POST http://localhost:3000/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "unverified@test.com",
+    "password": "password123!"
+  }'
+
+# 응답: 403 FORBIDDEN - 이메일 인증이 필요합니다
 ```
+---
 
-### 2. 토큰 디코드
-
-JWT 토큰 내용을 확인하려면 [jwt.io](https://jwt.io)에서 디코드하세요.
-
-### 3. 서버 로그 실시간 확인
+## 디버깅Tips
+인증 코드
 
 ```bash
-docker logs -f algoway-backend
+curl -X POST http://localhost:3000/v1/auth/verify/confirm \
+  -H "Content-Type: application/json
 ```
 
 ### 4. API 테스트 도구 사용
