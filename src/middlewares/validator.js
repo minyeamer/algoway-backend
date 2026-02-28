@@ -103,6 +103,55 @@ const refreshTokenValidation = [
 ];
 
 /**
+ * 프로필 수정 Validation
+ */
+const updateProfileValidation = [
+  body('nickname')
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('닉네임은 2~50자 사이여야 합니다.')
+    .matches(/^[a-zA-Z0-9가-힣_]+$/)
+    .withMessage('닉네임은 한글, 영문, 숫자, 언더스코어만 사용 가능합니다.'),
+  body('profileImage')
+    .optional({ nullable: true })
+    .isURL()
+    .withMessage('프로필 이미지는 올바른 URL이어야 합니다.'),
+  validate
+];
+
+/**
+ * 즐겨찾는 경로 추가 Validation
+ */
+const addFavoriteValidation = [
+  body('departurePlace').notEmpty().withMessage('출발지 정보는 필수입니다.'),
+  body('departurePlace.name')
+    .notEmpty()
+    .withMessage('출발지 이름은 필수입니다.'),
+  body('departurePlace.lat')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('출발지 위도는 -90~90 사이의 숫자여야 합니다.')
+    .toFloat(),
+  body('departurePlace.lng')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('출발지 경도는 -180~180 사이의 숫자여야 합니다.')
+    .toFloat(),
+  body('arrivalPlace').notEmpty().withMessage('도착지 정보는 필수입니다.'),
+  body('arrivalPlace.name')
+    .notEmpty()
+    .withMessage('도착지 이름은 필수입니다.'),
+  body('arrivalPlace.lat')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('도착지 위도는 -90~90 사이의 숫자여야 합니다.')
+    .toFloat(),
+  body('arrivalPlace.lng')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('도착지 경도는 -180~180 사이의 숫자여야 합니다.')
+    .toFloat(),
+  validate
+];
+
+/**
  * UUID Validation
  */
 const uuidValidation = (paramName) => [
@@ -151,6 +200,8 @@ module.exports = {
   sendVerificationValidation,
   confirmVerificationValidation,
   refreshTokenValidation,
+  updateProfileValidation,
+  addFavoriteValidation,
   uuidValidation,
   paginationValidation,
   coordinatesValidation
