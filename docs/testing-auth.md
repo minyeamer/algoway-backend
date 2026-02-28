@@ -3,6 +3,9 @@
 로컬 개발 환경에서 인증 API를 검증하는 절차를 기록합니다.  
 현재 구현된 Auth API(6개 엔드포인트)를 전수 테스트합니다.
 
+> **플로우**: `verify/send` → `verify/confirm` → `signup` → `login`  
+> 이메일 인증을 완료해야 회원가입이 가능합니다. users 테이블에는 인증된 사용자만 저장됩니다.
+
 ---
 
 ## 목차
@@ -11,13 +14,12 @@
 1. [환경 시작 / 종료](#1-환경-시작--종료)
 2. [헬스체크](#2-헬스체크)
 3. [Auth API 전수 테스트](#3-auth-api-전수-테스트)
-   - 3.1 [회원가입](#31-회원가입)
+   - 3.1 [인증 코드 발송](#31-인증-코드-발송)
    - 3.2 [인증 코드 확인](#32-인증-코드-확인)
-   - 3.3 [이메일 인증](#33-이메일-인증)
+   - 3.3 [회원가입](#33-회원가입)
    - 3.4 [로그인](#34-로그인)
-   - 3.5 [인증 코드 재발송](#35-인증-코드-재발송)
-   - 3.6 [토큰 갱신](#36-토큰-갱신)
-   - 3.7 [로그아웃](#37-로그아웃)
+   - 3.5 [토큰 갱신](#35-토큰-갱신)
+   - 3.6 [로그아웃](#36-로그아웃)
 4. [에러 케이스 테스트](#4-에러-케이스-테스트)
 5. [DB 상태 직접 확인](#5-db-상태-직접-확인)
 6. [로그 모니터링](#6-로그-모니터링)
@@ -103,45 +105,34 @@ curl -s http://localhost:3000/health | jq
 
 테스트는 순서대로 진행합니다. 각 단계의 응답값을 다음 단계에서 사용합니다.
 
-### 3.1. 회원가입
+### 3.1. 인증 코드 발송
+
+회원가입 전 반드시 먼저 이메일 인증 코드를 발송합니다.
 
 ```bash
-curl -s -X POST http://localhost:3000/v1/auth/signup \
+curl -s -X POST http://localhost:3000/v1/auth/verify/send \
   -H "Content-Type: application/json" \
   -d '{
     "email": "alice@university.ac.kr",
-    "password": "TestPass1!",
-    "userType": "student",
-    "nickname": "Alice"
+    "verificationType": "student"
   }' | jq
 ```
 
-기대 응답 (`201 Created`):
+기대 응답 (`200 OK`):
 
 ```json
 {
   "success": true,
-  "data": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "email": "alice@university.ac.kr",
-    "nickname": "Alice",
-    "userType": "student",
-    "isVerified": false,
-    "verificationRequired": true
-  },
-  "message": "회원가입이 완료되었습니다. 이메일로 발송된 인증 코드를 확인해주세요."
+  "message": "인증 코드가 발송되었습니다."
 }
 ```
-
-**중요**: 회원가입 시 자동으로 인증 코드가 이메일로 발송됩니다.
 
 오류 케이스:
 
 | 재현 방법 | 기대 응답 |
 |---|---|
-| 동일 이메일로 `/signup` 재호출 | `409 EMAIL_ALREADY_EXISTS` |
 | 잘못된 이메일 형식 | `400 VALIDATION_ERROR` |
-| 비밀번호 8자 미만 | `400 VALIDATION_ERROR` |
+| verificationType 누락 | `400 VALIDATION_ERROR` |
 
 ---
 
@@ -153,7 +144,7 @@ SMTP가 미설정된 개발 환경에서는 인증 코드가 컨테이너 로그
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml logs backend \
-  | grep "Preview URL" | tail -1
+  2>/dev/null | grep "Mailpit\|code:" | tail -5
 ```
 
 출력 예시:
@@ -164,11 +155,7 @@ algoway-backend | 📧 Email Preview URL: https://ethereal.email/message/XXXXX
 
 해당 URL을 브라우저에서 열면 전송된 이메일 내용과 **6자리 인증 코드**를 확인할 수 있습니다.
 
----
-
-### 3.3. 이메일 인증
-
-위에서 얻은 코드를 사용합니다.
+코드를 확인했으면 인증을 완료합니다:
 
 ```bash
 CODE=123456  # 실제 코드로 교체
@@ -195,18 +182,61 @@ curl -s -X POST http://localhost:3000/v1/auth/verify/confirm \
 }
 ```
 
+**Note**: 인증 완료 후 1시간 이내에 회원가입을 완료해야 합니다.
+
 오류 케이스:
 
 | 재현 방법 | 기대 응답 |
 |---|---|
 | 코드 잘못 입력 | `400 INVALID_INPUT` |
-| 코드 만료 (10분 경과) | `400 CODE_EXPIRED` |
+| 코드 만료 (10분 경과) | `400 INVALID_INPUT` |
+
+---
+
+### 3.3. 회원가입
+
+인증이 완료된 이메일로 회원가입합니다. `userType`은 verify/send 단계에서 결정되므로 요청 바디에 포함하지 않습니다.
+
+```bash
+curl -s -X POST http://localhost:3000/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "alice@university.ac.kr",
+    "password": "TestPass1!",
+    "nickname": "Alice"
+  }' | jq
+```
+
+기대 응답 (`201 Created`):
+
+```json
+{
+  "success": true,
+  "data": {
+    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "alice@university.ac.kr",
+    "nickname": "Alice",
+    "userType": "student",
+    "isVerified": true,
+    "verificationBadge": "학생 인증"
+  },
+  "message": "회원가입이 완료되었습니다."
+}
+```
+
+**Note**: `isVerified: true`로 생성됩니다. 미인증 사용자는 users 테이블에 저장되지 않습니다.
+
+오류 케이스:
+
+| 재현 방법 | 기대 응답 |
+|---|---|
+| verify/confirm 없이 바로 signup | `403 FORBIDDEN` |
+| 동일 이메일로 재가입 | `409 ALREADY_EXISTS` |
+| 비밀번호 8자 미만 | `400 VALIDATION_ERROR` |
 
 ---
 
 ### 3.4. 로그인
-
-**중요**: 이메일 인증이 완료된 사용자만 로그인할 수 있습니다.
 
 ```bash
 curl -s -X POST http://localhost:3000/v1/auth/login \
@@ -256,36 +286,11 @@ echo "Refresh Token: $REFRESH_TOKEN"
 | 재현 방법 | 기대 응답 |
 |---|---|
 | 잘못된 비밀번호 | `401 INVALID_CREDENTIALS` |
-| 이메일 미인증 계정으로 로그인 | `403 EMAIL_NOT_VERIFIED` |
+| 존재하지 않는 이메일 | `401 INVALID_CREDENTIALS` |
 
 ---
 
-### 3.5. 인증 코드 재발송
-
-```bash
-curl -s -X POST http://localhost:3000/v1/auth/verify/send \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "alice@university.ac.kr",
-    "verificationType": "student"
-  }' | jq
-```
-
-기대 응답 (`200 OK`):
-
-```json
-{
-  "success": true,
-  "data": null,
-  "message": "인증 코드가 재발송되었습니다."
-}
-```
-
-**Note**: 회원가입 시 자동으로 인증 코드가 발송되므로, 이 API는 코드를 받지 못했거나 만료된 경우에만 사용합니다.
-
----
-
-### 3.6. 토큰 갱신
+### 3.5. 토큰 갱신
 
 ```bash
 curl -s -X POST http://localhost:3000/v1/auth/refresh \
@@ -318,12 +323,11 @@ REFRESH_TOKEN=$(echo $TOKENS | jq -r '.data.refreshToken')
 
 ---
 
-### 3.7. 로그아웃
+### 3.6. 로그아웃
 
 ```bash
 curl -s -X POST http://localhost:3000/v1/auth/logout \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}" | jq
 ```
 
@@ -350,44 +354,35 @@ curl -s -X POST http://localhost:3000/v1/auth/refresh \
 
 ## 4. 에러 케이스 테스트
 
-### 4.1. 인증 없이 로그인 시도
+### 4.1. 인증 없이 회원가입 시도
 
 ```bash
-# Step 1: 회원가입
+# verify/confirm 없이 바로 signup → 403 에러
 curl -s -X POST http://localhost:3000/v1/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "unverified@test.com",
+    "email": "noverify@test.com",
     "password": "TestPass1!",
-    "userType": "student",
     "nickname": "미인증사용자"
   }' | jq
 
-# Step 2: 인증 없이 바로 로그인 시도 → 403 에러
-curl -s -X POST http://localhost:3000/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "unverified@test.com",
-    "password": "TestPass1!"
-  }' | jq
-
-# 기대 응답: 403 FORBIDDEN
+# 기대 응답: 403 FORBIDDEN — "이메일 인증을 먼저 완료해주세요."
 ```
 
 ### 4.2. 중복 이메일 회원가입
 
 ```bash
 # 동일 이메일로 두 번째 회원가입 시도 → 409 에러
+# (먼저 verify/send → verify/confirm 을 다시 거쳐야 함)
 curl -s -X POST http://localhost:3000/v1/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
     "email": "alice@university.ac.kr",
     "password": "TestPass1!",
-    "userType": "student",
     "nickname": "중복테스트"
   }' | jq
 
-# 기대 응답: 409 EMAIL_ALREADY_EXISTS
+# 기대 응답: 409 ALREADY_EXISTS
 ```
 
 ### 4.3. 잘못된 비밀번호로 로그인
@@ -421,17 +416,17 @@ curl -s -X POST http://localhost:3000/v1/auth/verify/confirm \
 ## 5. DB 상태 직접 확인
 
 ```bash
-# users 목록
+# users 목록 (모두 is_verified=true 여야 함)
 docker exec -it algoway-postgres psql -U algoway_user -d algoway \
-  -c "SELECT user_id, email, nickname, user_type, is_verified FROM users;"
+  -c "SELECT user_id, email, nickname, user_type, is_verified, verification_badge FROM users;"
 
 # verification_codes 목록
 docker exec -it algoway-postgres psql -U algoway_user -d algoway \
-  -c "SELECT user_id, email, code, expires_at FROM verification_codes WHERE expires_at > now();"
+  -c "SELECT email, code, verification_type, expires_at, is_used FROM verification_codes ORDER BY created_at DESC LIMIT 10;"
 
 # refresh_tokens 목록
 docker exec -it algoway-postgres psql -U algoway_user -d algoway \
-  -c "SELECT user_id, expires_at, is_revoked FROM refresh_tokens;"
+  -c "SELECT user_id, expires_at FROM refresh_tokens;"
 ```
 
 ---
@@ -456,15 +451,13 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml logs backend \
 ## 전체 테스트 시나리오 (한 번에 실행)
 
 ```bash
-# 1. 회원가입
-echo "=== 1. 회원가입 ==="
-curl -s -X POST http://localhost:3000/v1/auth/signup \
+# 1. 인증 코드 발송
+echo "=== 1. 인증 코드 발송 ==="
+curl -s -X POST http://localhost:3000/v1/auth/verify/send \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@university.ac.kr",
-    "password": "TestPass1!",
-    "userType": "student",
-    "nickname": "테스터"
+    "verificationType": "student"
   }' | jq
 
 # 2. 로그에서 인증 코드 확인 (수동)
@@ -473,8 +466,8 @@ echo "다음 명령으로 Ethereal URL을 확인하세요:"
 echo "docker compose -f docker-compose.yml -f docker-compose.dev.yml logs backend | grep 'Preview URL' | tail -1"
 read -p "인증 코드 6자리를 입력하세요: " CODE
 
-# 3. 이메일 인증
-echo "=== 3. 이메일 인증 ==="
+# 3. 이메일 인증 확인
+echo "=== 3. 이메일 인증 확인 ==="
 curl -s -X POST http://localhost:3000/v1/auth/verify/confirm \
   -H "Content-Type: application/json" \
   -d "{
@@ -482,8 +475,18 @@ curl -s -X POST http://localhost:3000/v1/auth/verify/confirm \
     \"verificationCode\": \"$CODE\"
   }" | jq
 
-# 4. 로그인
-echo "=== 4. 로그인 ==="
+# 4. 회원가입
+echo "=== 4. 회원가입 ==="
+curl -s -X POST http://localhost:3000/v1/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@university.ac.kr",
+    "password": "TestPass1!",
+    "nickname": "테스터"
+  }' | jq
+
+# 5. 로그인
+echo "=== 5. 로그인 ==="
 TOKENS=$(curl -s -X POST http://localhost:3000/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@university.ac.kr","password":"TestPass1!"}')
@@ -495,14 +498,14 @@ echo $TOKENS | jq
 echo "Access Token: ${ACCESS_TOKEN:0:50}..."
 echo "Refresh Token: ${REFRESH_TOKEN:0:50}..."
 
-# 5. 토큰 갱신
-echo "=== 5. 토큰 갱신 ==="
+# 6. 토큰 갱신
+echo "=== 6. 토큰 갱신 ==="
 curl -s -X POST http://localhost:3000/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}" | jq
 
-# 6. 로그아웃
-echo "=== 6. 로그아웃 ==="
+# 7. 로그아웃
+echo "=== 7. 로그아웃 ==="
 curl -s -X POST http://localhost:3000/v1/auth/logout \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
@@ -521,4 +524,6 @@ echo "=== 테스트 완료 ==="
 2. **팟 API 테스팅** (`docs/testing-pods.md`)
 3. **채팅 API 테스팅** (`docs/testing-chat.md`)
 4. **평가 API 테스팅** (`docs/testing-ratings.md`)
+
+
 

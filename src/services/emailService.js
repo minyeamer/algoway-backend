@@ -7,21 +7,20 @@ const logger = require('../utils/logger');
  * 프로덕션 환경: 실제 SMTP 서버
  */
 const createTransporter = async () => {
-  if (process.env.NODE_ENV === 'production' && process.env.SMTP_HOST) {
-    // 프로덕션: 실제 SMTP 서버
-    return nodemailer.createTransporter({
+  if (process.env.SMTP_HOST) {
+    // SMTP 환경변수가 있으면 사용 (개발: Mailpit, 프로덕션: 실제 SMTP)
+    return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT || 587,
+      port: parseInt(process.env.SMTP_PORT) || 1025,
       secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
+      auth: process.env.SMTP_USER
+        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        : undefined
     });
   } else {
-    // 개발: Ethereal Email (테스트용)
+    // 폴백: Ethereal Email (인터넷 연결 필요)
     const testAccount = await nodemailer.createTestAccount();
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
       secure: false,
@@ -96,9 +95,14 @@ const sendVerificationEmail = async (email, code, verificationType) => {
 
     const info = await transporter.sendMail(mailOptions);
 
-    // 개발 환경에서는 테스트 URL 출력
+    // 개발 환경에서는 메일 확인 방법 안내
     if (process.env.NODE_ENV !== 'production') {
-      logger.info('📧 Email Preview URL:', nodemailer.getTestMessageUrl(info));
+      if (process.env.SMTP_HOST === 'mailpit') {
+        logger.info(`📧 Mailpit Web UI: http://localhost:8025  |  code: ${code}`);
+      } else {
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) logger.info('📧 Email Preview URL:', previewUrl);
+      }
     }
 
     return {

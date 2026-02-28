@@ -39,9 +39,6 @@ const signupValidation = [
     .withMessage('비밀번호는 최소 8자 이상이어야 합니다.')
     .matches(/^(?=.*[a-zA-Z])(?=.*\d)/)
     .withMessage('비밀번호는 영문과 숫자를 포함해야 합니다.'),
-  body('userType')
-    .isIn(['student', 'employee', 'others'])
-    .withMessage('사용자 유형은 student, employee, others 중 하나여야 합니다.'),
   body('nickname')
     .trim()
     .isLength({ min: 2, max: 50 })
