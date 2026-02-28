@@ -189,6 +189,73 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
+// ─── 채팅 ─────────────────────────────────────────────────────────────────────
+
+export type MessageType = 'text' | 'location' | 'status' | 'system';
+
+export interface ChatRoomSummary {
+  chatRoomId: string;
+  pod: {
+    podId: string;
+    departurePlace: string;
+    arrivalPlace: string;
+    departureTime: Date;
+    status: PodStatus;
+  };
+  lastMessage: {
+    messageId: string;
+    content: string | null;
+    sender: {
+      userId: string;
+      nickname: string;
+    };
+    createdAt: Date;
+  } | null;
+  unreadCount: number;
+  createdAt: Date;
+}
+
+export interface ChatMessage {
+  messageId: string;
+  chatRoomId: string;
+  content: string | null;
+  messageType: MessageType;
+  location: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  } | null;
+  sender: {
+    userId: string;
+    nickname: string;
+    profileImage: string | null;
+  };
+  createdAt: Date;
+}
+
+export interface SendMessageInput {
+  messageType: MessageType;
+  content?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
+}
+
+export interface ChatParticipant {
+  userId: string;
+  nickname: string;
+  profileImage: string | null;
+  verificationBadge: string | null;
+  isReady: boolean;
+}
+
+export interface ChatParticipantsResult {
+  participants: ChatParticipant[];
+  allReady: boolean;
+}
+
 // ─── 에러 ─────────────────────────────────────────────────────────────────────
 
 export interface AppError extends Error {
