@@ -105,105 +105,82 @@
 algoway/
 │
 ├── docs/                           # 📄 프로젝트 문서
-│   ├── README.md                   # 서비스 기획서
+│   ├── ai-guidelines.md            # AI 협업 가이드라인
 │   ├── api.md                      # REST API 명세
-│   ├── page.md                     # 페이지 기획서 (프론트엔드용)
+│   ├── chat.log                    # 주요 기술 의사결정 로그
+│   ├── database-naming.md          # DB 네이밍 규칙 (snake_case ↔ camelCase)
 │   ├── infra.md                    # 인프라 & 개발 운영 설계 (본 문서)
-│   └── chat.log                    # 주요 기술 의사결정 로그
+│   ├── page.md                     # 페이지 기획서 (프론트엔드용)
+│   └── tests/                      # 수동 cURL 테스트 가이드
+│       ├── 01-auth.md
+│       ├── 02-users.md
+│       └── 03-pods.md
 │
 ├── src/
 │   ├── config/                     # ⚙️ 설정 파일
-│   │   ├── database.js             # Supabase & PostgreSQL 연결
-│   │   ├── redis.js                # Redis 클라이언트
-│   │   └── constants.js            # 상수 정의 (Enum, 에러 코드 등)
-│   │
-│   ├── middlewares/                # 🛡️ 미들웨어
-│   │   ├── auth.js                 # JWT 인증 (Bearer Token)
-│   │   ├── errorHandler.js         # 전역 에러 핸들러
-│   │   ├── validator.js            # 입력 검증 (express-validator)
-│   │   └── rateLimit.js            # API 호출 제한 (Redis 기반)
-│   │
-│   ├── routes/                     # 🛣️ 라우트 (도메인별 파일)
-│   │   ├── index.js                # 라우트 통합
-│   │   ├── auth.js                 # 인증 (회원가입, 로그인, 인증)
-│   │   ├── users.js                # 사용자 프로필, 내역
-│   │   ├── pods.js                 # 팟 CRUD, 검색
-│   │   ├── chat.js                 # 채팅방, 메시지
-│   │   ├── ratings.js              # 매너 평가
-│   │   └── notifications.js        # 알림
+│   │   ├── constants.ts            # 상수 정의 (Enum, 에러 코드 등)
+│   │   ├── database.ts             # PostgreSQL Pool 연결 (camelCase 변환 포함)
+│   │   └── redis.ts                # Redis 클라이언트
 │   │
 │   ├── controllers/                # 🎮 컨트롤러 (라우트 핸들러)
-│   │   ├── authController.js
-│   │   ├── userController.js
-│   │   ├── podController.js
-│   │   ├── chatController.js
-│   │   ├── ratingController.js
-│   │   └── notificationController.js
+│   │   ├── authController.ts
+│   │   ├── podController.ts
+│   │   └── userController.ts
 │   │
-│   ├── services/                   # 🧩 비즈니스 로직 (DB에 직접 접근하지 않음)
-│   │   ├── authService.js          # 로그인, JWT 발급, 인증 코드
-│   │   ├── userService.js          # 프로필 조회/수정, 내역
-│   │   ├── podService.js           # 팟 생성, 검색, 참여/나가기
-│   │   ├── chatService.js          # 채팅방, 메시지 조회
-│   │   ├── ratingService.js        # 평가 작성/조회
-│   │   ├── emailService.js         # 이메일 전송 (Nodemailer)
-│   │   ├── mapService.js           # Kakao Map API 연동
-│   │   └── notificationService.js  # 알림 생성/푸시
+│   ├── middlewares/                # 🛡️ 미들웨어
+│   │   ├── auth.ts                 # JWT 인증 (Bearer Token)
+│   │   ├── errorHandler.ts         # 전역 에러 핸들러 + asyncHandler
+│   │   └── validator.ts            # 입력 검증 (express-validator)
 │   │
-│   ├── repositories/               # 💾 DB CRUD 추상화 (service ↔ Supabase)
-│   │   ├── userRepository.js
-│   │   ├── podRepository.js
-│   │   ├── chatRepository.js
-│   │   └── ratingRepository.js
+│   ├── repositories/               # 💾 DB CRUD 추상화 (미구현, 예정)
+│   │
+│   ├── routes/                     # 🛣️ 라우트 (도메인별 파일)
+│   │   ├── auth.ts
+│   │   ├── pods.ts
+│   │   └── users.ts
+│   │
+│   ├── services/                   # 🧩 비즈니스 로직
+│   │   ├── authService.ts          # 로그인, JWT 발급, 인증 코드
+│   │   ├── emailService.ts         # 이메일 전송 (Nodemailer + Mailpit)
+│   │   ├── podService.ts           # 팟 생성, 검색, 참여/나가기
+│   │   └── userService.ts          # 프로필 조회/수정, 즐겨찾기, 탑승내역
+│   │
+│   ├── types/                      # 📐 TypeScript 타입 정의
+│   │   ├── express.d.ts            # Express Request 확장 (req.user)
+│   │   └── index.ts                # 공통 타입 (Auth, User, Pod 등)
 │   │
 │   ├── utils/                      # 🔧 유틸리티
-│   │   ├── jwt.js                  # JWT 토큰 생성/검증
-│   │   ├── response.js             # API 응답 포맷 (success, error)
-│   │   ├── logger.js               # Winston 로거
-│   │   └── validator.js            # 커스텀 검증 함수
+│   │   ├── caseConverter.ts        # snake_case ↔ camelCase 변환
+│   │   ├── jwt.ts                  # JWT 토큰 생성/검증
+│   │   ├── logger.ts               # Winston 로거
+│   │   └── response.ts             # API 응답 포맷 (successResponse 등)
 │   │
-│   ├── websocket/                  # 🔌 실시간 통신
-│   │   ├── socket.js               # Socket.io 서버 설정
-│   │   └── handlers/
-│   │       ├── chatHandler.js      # 채팅 이벤트 핸들러
-│   │       └── podHandler.js       # 팟 실시간 업데이트 (참여자 변경 등)
+│   ├── websocket/                  # 🔌 실시간 통신 (미구현, 예정)
 │   │
-│   └── app.js                      # 📦 Express 앱 설정 (미들웨어, 라우트 등록)
+│   └── app.ts                      # 📦 Express 앱 설정 (미들웨어, 라우트 등록)
 │
 ├── scripts/                        # 📜 스크립트
-│   ├── init-db.sql                 # PostgreSQL 스키마 초기화
-│   └── seed-db.js                  # 더미 데이터 삽입 (개발용)
-│
-├── tests/                          # 🧪 테스트
-│   ├── unit/                       # 단위 테스트 (services, utils)
-│   ├── integration/                # 통합 테스트 (API 엔드포인트)
-│   └── fixtures/                   # 테스트 데이터
+│   └── init-db.sql                 # PostgreSQL 스키마 초기화
 │
 ├── infra/                          # 🏗️ 인프라 설정
-│   ├── nginx/
-│   │   ├── nginx.conf              # Nginx 리버스 프록시 설정
-│   │   └── Dockerfile
-│   ├── redis/
-│   │   └── redis.conf              # Redis 설정
-│   └── postgres/
-│       └── init/
-│           └── 00_create_extensions.sql  # PostGIS 확장 활성화
+│   └── redis/
+│       └── redis.conf              # Redis 설정
 │
 ├── docker-compose.yml              # 🐳 Docker Compose (운영 공통)
-├── docker-compose.dev.yml          # 개발 환경 오버라이드 (hot-reload)
-├── docker-compose.prod.yml         # 운영 환경 오버라이드 (리소스 제한)
+├── docker-compose.dev.yml          # 개발 환경 오버라이드 (ts-node-dev)
 │
-├── Dockerfile                      # 운영용 이미지 (멀티스테이지)
-├── Dockerfile.dev                  # 개발용 이미지 (nodemon)
+├── Dockerfile                      # 운영용 이미지 (멀티스테이지, tsc 빌드)
+├── Dockerfile.dev                  # 개발용 이미지 (ts-node-dev)
 │
-├── server.js                       # 🚀 서버 진입점
+├── server.ts                       # 🚀 서버 진입점
+├── tsconfig.json                   # TypeScript 컴파일러 설정
 ├── package.json
 ├── package-lock.json
 ├── .env.example                    # 환경 변수 예시
 ├── .env                            # 실제 환경 변수 (gitignore)
 ├── .gitignore
 ├── LICENSE
-└── README.md                       # 프로젝트 루트 README (개발자용)
+└── README.md
 ```
 
 ---

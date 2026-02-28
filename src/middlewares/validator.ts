@@ -190,3 +190,165 @@ export const coordinatesValidation: ValidationMiddleware[] = [
     .toFloat(),
   validate,
 ];
+
+// ─── 팟 Validation ────────────────────────────────────────────────────────────
+
+/**
+ * 팟 생성 Validation
+ */
+export const createPodValidation: ValidationMiddleware[] = [
+  body('departurePlace.name')
+    .trim()
+    .notEmpty()
+    .withMessage('출발지 이름을 입력해주세요.'),
+  body('departurePlace.latitude')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('출발지 위도가 올바르지 않습니다.')
+    .toFloat(),
+  body('departurePlace.longitude')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('출발지 경도가 올바르지 않습니다.')
+    .toFloat(),
+  body('arrivalPlace.name')
+    .trim()
+    .notEmpty()
+    .withMessage('도착지 이름을 입력해주세요.'),
+  body('arrivalPlace.latitude')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('도착지 위도가 올바르지 않습니다.')
+    .toFloat(),
+  body('arrivalPlace.longitude')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('도착지 경도가 올바르지 않습니다.')
+    .toFloat(),
+  body('departureTime')
+    .isISO8601()
+    .withMessage('출발 시간은 ISO 8601 형식이어야 합니다.')
+    .custom((value: string) => {
+      if (new Date(value) <= new Date()) {
+        throw new Error('출발 시간은 현재 시간 이후여야 합니다.');
+      }
+      return true;
+    }),
+  body('maxParticipants')
+    .isInt({ min: 2, max: 4 })
+    .withMessage('최대 인원은 2~4명이어야 합니다.')
+    .toInt(),
+  body('vehicleType')
+    .isIn(['taxi', 'personal'])
+    .withMessage('이동 수단은 taxi 또는 personal이어야 합니다.'),
+  body('estimatedCost')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('예상 비용은 0 이상의 정수여야 합니다.')
+    .toInt(),
+  body('memo')
+    .optional()
+    .trim()
+    .isLength({ max: 200 })
+    .withMessage('메모는 200자 이내여야 합니다.'),
+  validate,
+];
+
+/**
+ * 팟 목록 조회 Validation (위치 기반)
+ */
+export const listPodsValidation: ValidationMiddleware[] = [
+  query('latitude')
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('위도는 -90~90 사이의 수여야 합니다.')
+    .toFloat(),
+  query('longitude')
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('경도는 -180~180 사이의 수여야 합니다.')
+    .toFloat(),
+  query('radius')
+    .optional()
+    .isInt({ min: 100, max: 20000 })
+    .withMessage('반경은 100~20000m 사이여야 합니다.')
+    .toInt(),
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('페이지는 1 이상의 정수여야 합니다.')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('limit은 1~100 사이의 정수여야 합니다.')
+    .toInt(),
+  query('status')
+    .optional()
+    .isIn(['recruiting', 'full', 'in_progress', 'completed'])
+    .withMessage('올바르지 않은 상태값입니다.'),
+  validate,
+];
+
+/**
+ * 팟 검색 Validation
+ */
+export const searchPodsValidation: ValidationMiddleware[] = [
+  query('departureLat')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('출발지 위도가 올바르지 않습니다.')
+    .toFloat(),
+  query('departureLng')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('출발지 경도가 올바르지 않습니다.')
+    .toFloat(),
+  query('arrivalLat')
+    .optional()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('도착지 위도가 올바르지 않습니다.')
+    .toFloat(),
+  query('arrivalLng')
+    .optional()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('도착지 경도가 올바르지 않습니다.')
+    .toFloat(),
+  query('radius')
+    .optional()
+    .isInt({ min: 100, max: 20000 })
+    .withMessage('반경은 100~20000m 사이여야 합니다.')
+    .toInt(),
+  query('departureTimeFrom')
+    .optional()
+    .isISO8601()
+    .withMessage('출발 시간 시작은 ISO 8601 형식이어야 합니다.'),
+  query('departureTimeTo')
+    .optional()
+    .isISO8601()
+    .withMessage('출발 시간 종료는 ISO 8601 형식이어야 합니다.'),
+  query('verifiedOnly')
+    .optional()
+    .isBoolean()
+    .withMessage('verifiedOnly는 true 또는 false여야 합니다.')
+    .toBoolean(),
+  query('vehicleType')
+    .optional()
+    .isIn(['taxi', 'personal'])
+    .withMessage('이동 수단은 taxi 또는 personal이어야 합니다.'),
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('페이지는 1 이상의 정수여야 합니다.')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('limit은 1~100 사이의 정수여야 합니다.')
+    .toInt(),
+  validate,
+];
+
+/**
+ * 팟 상태 업데이트 Validation
+ */
+export const updatePodStatusValidation: ValidationMiddleware[] = [
+  body('status')
+    .isIn(['recruiting', 'full', 'in_progress', 'completed', 'cancelled'])
+    .withMessage('올바르지 않은 상태값입니다.'),
+  validate,
+];

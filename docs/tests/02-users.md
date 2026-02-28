@@ -3,7 +3,7 @@
 로컬 개발 환경에서 사용자 API를 검증하는 절차를 기록합니다.  
 Users API(7개 엔드포인트)를 전수 테스트합니다.
 
-> **사전 조건**: 인증 API 테스트(`docs/testing/01-auth.md`)를 완료하여  
+> **사전 조건**: 인증 API 테스트(`docs/tests/01-auth.md`)를 완료하여  
 > `ACCESS_TOKEN`, `REFRESH_TOKEN`, `USER_ID` 변수가 준비되어 있어야 합니다.
 
 ---

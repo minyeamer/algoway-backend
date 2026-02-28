@@ -7,6 +7,7 @@ import { successResponse } from './utils/response';
 import { notFoundHandler, globalErrorHandler } from './middlewares/errorHandler';
 import authRouter from './routes/auth';
 import usersRouter from './routes/users';
+import podsRouter from './routes/pods';
 
 const app = express();
 
@@ -43,7 +44,7 @@ app.get('/health', (_req: Request, res: Response) => {
 // API 라우트
 app.use('/v1/auth', authRouter);
 app.use('/v1/users', usersRouter);
-// app.use('/v1/pods', podsRouter);
+app.use('/v1/pods', podsRouter);
 // app.use('/v1/chat', chatRouter);
 // app.use('/v1/ratings', ratingsRouter);
 // app.use('/v1/notifications', notificationsRouter);
