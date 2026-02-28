@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: algoway-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - algoway-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # 백엔드
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: algoway-backend
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - algoway-network
+    restart: unless-stopped
+
+networks:
+  algoway-network:
+    driver: bridge
+
+volumes:
+  redis_data:

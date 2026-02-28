@@ -1,0 +1,15 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./src:/app/src                    # Hot-reload를 위한 소스 마운트
+      - ./server.js:/app/server.js
+      - ./package.json:/app/package.json
+      - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
+    environment:
+      NODE_ENV: development
+    command: npm run dev                  # nodemon 실행
