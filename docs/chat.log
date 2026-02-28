@@ -141,59 +141,59 @@ Supabase SQL Editor에서 실행하여 초기화한다.
 생성된 테이블 (12개)
 --------------------
   1. users (사용자 계정)
-     - user_id (UUID PK), email (UNIQUE), password_hash, nickname
-     - user_type (student/employee/others), is_verified, verification_badge
-     - manner_score (DECIMAL, 1.0~5.0), total_rides
-     - created_at, updated_at
+    - user_id (UUID PK), email (UNIQUE), password_hash, nickname
+    - user_type (student/employee/others), is_verified, verification_badge
+    - manner_score (DECIMAL, 1.0~5.0), total_rides
+    - created_at, updated_at
 
   2. verification_codes (이메일 인증 코드)
-     - code_id (UUID PK), email, code (6자리), verification_type
-     - expires_at (10분 유효), is_used, created_at
+    - code_id (UUID PK), email, code (6자리), verification_type
+    - expires_at (10분 유효), is_used, created_at
 
   3. refresh_tokens (JWT 리프레시 토큰)
-     - token_id (UUID PK), user_id (FK), token, expires_at (7일), created_at
+    - token_id (UUID PK), user_id (FK), token, expires_at (7일), created_at
 
   4. pods (카풀 팟)
-     - pod_id (UUID PK), creator_id (FK)
-     - departure_place_name, departure_location (GEOGRAPHY POINT)
-     - arrival_place_name, arrival_location (GEOGRAPHY POINT)
-     - departure_time, max_participants (2~4), current_participants
-     - vehicle_type (taxi/personal), estimated_cost, cost_per_person
-     - status (recruiting/full/in_progress/completed/cancelled)
+    - pod_id (UUID PK), creator_id (FK)
+    - departure_place_name, departure_location (GEOGRAPHY POINT)
+    - arrival_place_name, arrival_location (GEOGRAPHY POINT)
+    - departure_time, max_participants (2~4), current_participants
+    - vehicle_type (taxi/personal), estimated_cost, cost_per_person
+    - status (recruiting/full/in_progress/completed/cancelled)
 
   5. pod_participants (팟 참여자 중간 테이블)
-     - participant_id (UUID PK), pod_id (FK), user_id (FK)
-     - UNIQUE(pod_id, user_id)
+    - participant_id (UUID PK), pod_id (FK), user_id (FK)
+    - UNIQUE(pod_id, user_id)
 
   6. chat_rooms (채팅방)
-     - chat_room_id (UUID PK), pod_id (FK UNIQUE), created_at
+    - chat_room_id (UUID PK), pod_id (FK UNIQUE), created_at
 
   7. messages (채팅 메시지)
-     - message_id (UUID PK), chat_room_id (FK), sender_id (FK)
-     - message_type (text/location/status/system)
-     - content, location_lat, location_lng, location_address
+    - message_id (UUID PK), chat_room_id (FK), sender_id (FK)
+    - message_type (text/location/status/system)
+    - content, location_lat, location_lng, location_address
 
   8. ready_status (참여자 준비 완료 상태)
-     - status_id (UUID PK), chat_room_id (FK), user_id (FK)
-     - is_ready, updated_at
+    - status_id (UUID PK), chat_room_id (FK), user_id (FK)
+    - is_ready, updated_at
 
   9. ratings (매너 평가)
-     - rating_id (UUID PK), pod_id (FK), reviewer_id (FK), reviewee_id (FK)
-     - rating (1~5), comment
+    - rating_id (UUID PK), pod_id (FK), reviewer_id (FK), reviewee_id (FK)
+    - rating (1~5), comment
 
   10. favorite_routes (즐겨찾는 경로)
-      - favorite_id (UUID PK), user_id (FK)
-      - departure_place { name, location (GEOGRAPHY POINT) }
-      - arrival_place { name, location (GEOGRAPHY POINT) }
+    - favorite_id (UUID PK), user_id (FK)
+    - departure_place { name, location (GEOGRAPHY POINT) }
+    - arrival_place { name, location (GEOGRAPHY POINT) }
 
   11. notifications (알림)
-      - notification_id (UUID PK), user_id (FK)
-      - notification_type (pod_joined/pod_full/message/rating/system)
-      - title, content, is_read
+    - notification_id (UUID PK), user_id (FK)
+    - notification_type (pod_joined/pod_full/message/rating/system)
+    - title, content, is_read
 
   12. notification_settings (알림 설정)
-      - setting_id (UUID PK), user_id (FK)
-      - notification_type, is_enabled
+    - setting_id (UUID PK), user_id (FK)
+    - notification_type, is_enabled
 
 PostGIS 활용
 ------------
@@ -205,13 +205,13 @@ PostGIS 활용
 트리거 구현
 -----------
   1. update_pod_participants_count
-     - pod_participants INSERT/DELETE 시 pods.current_participants 자동 업데이트
+    - pod_participants INSERT/DELETE 시 pods.current_participants 자동 업데이트
 
   2. update_manner_score
-     - ratings INSERT 시 users.manner_score 평균 재계산
+    - ratings INSERT 시 users.manner_score 평균 재계산
 
   3. update_updated_at
-     - users, pods 등 UPDATE 시 updated_at 자동 갱신
+    - users, pods 등 UPDATE 시 updated_at 자동 갱신
 
 인덱스 전략
 -----------
@@ -231,62 +231,62 @@ api.md §1 Auth 전체 10개 엔드포인트를 구현했다.
 구현된 기능
 -----------
   1. POST /v1/auth/signup (회원가입)
-     - email, password, user_type, nickname 입력
-     - 비밀번호 bcrypt 해싱 (salt rounds: 10)
-     - 이메일 중복 체크
-     - 환영 이메일 자동 발송
+    - email, password, user_type, nickname 입력
+    - 비밀번호 bcrypt 해싱 (salt rounds: 10)
+    - 이메일 중복 체크
+    - 환영 이메일 자동 발송
 
   2. POST /v1/auth/login (로그인)
-     - email, password 검증
-     - JWT Access Token (1시간) + Refresh Token (7일) 발급
-     - Refresh Token은 DB에 저장
+    - email, password 검증
+    - JWT Access Token (1시간) + Refresh Token (7일) 발급
+    - Refresh Token은 DB에 저장
 
   3. POST /v1/auth/verify/send (이메일 인증 코드 발송)
-     - 6자리 랜덤 숫자 코드 생성
-     - expires_at = 현재 + 10분
-     - Nodemailer로 이메일 전송 (개발 환경: Ethereal Email)
+    - 6자리 랜덤 숫자 코드 생성
+    - expires_at = 현재 + 10분
+    - Nodemailer로 이메일 전송 (개발 환경: Ethereal Email)
 
   4. POST /v1/auth/verify/confirm (이메일 인증 코드 확인)
-     - 코드 검증, 만료 시간 체크
-     - users.is_verified = true 업데이트
-     - verification_badge 부여 (student/employee/others)
-     - JWT 인증 필요
+    - 코드 검증, 만료 시간 체크
+    - users.is_verified = true 업데이트
+    - verification_badge 부여 (student/employee/others)
+    - JWT 인증 필요
 
   5. POST /v1/auth/refresh (토큰 갱신)
-     - Refresh Token 검증 (DB 조회)
-     - 새로운 Access Token + Refresh Token 발급
-     - 기존 Refresh Token 삭제 (보안)
+    - Refresh Token 검증 (DB 조회)
+    - 새로운 Access Token + Refresh Token 발급
+    - 기존 Refresh Token 삭제 (보안)
 
   6. POST /v1/auth/logout (로그아웃)
-     - Refresh Token DB에서 삭제
-     - JWT 인증 필요
+    - Refresh Token DB에서 삭제
+    - JWT 인증 필요
 
   7. POST /v1/auth/password/forgot (비밀번호 재설정 요청)
-     - 이메일로 재설정 링크 발송
-     - JWT 기반 일회용 토큰 (1시간 유효)
+    - 이메일로 재설정 링크 발송
+    - JWT 기반 일회용 토큰 (1시간 유효)
 
   8. POST /v1/auth/password/reset (비밀번호 재설정 확인)
-     - 토큰 검증 후 새 비밀번호 설정
+    - 토큰 검증 후 새 비밀번호 설정
 
   9. POST /v1/auth/password/change (비밀번호 변경)
-     - 기존 비밀번호 확인 후 변경
-     - JWT 인증 필요
+    - 기존 비밀번호 확인 후 변경
+    - JWT 인증 필요
 
   10. POST /v1/auth/email/change (이메일 변경)
-      - 새 이메일로 인증 코드 발송
-      - 인증 완료 후 이메일 변경
+    - 새 이메일로 인증 코드 발송
+    - 인증 완료 후 이메일 변경
 
 파일 구조
 ---------
   src/
-    ├── routes/auth.js           # 라우트 정의 (express-validator 검증)
+    ├── routes/auth.js        # 라우트 정의 (express-validator 검증)
     ├── controllers/authController.js  # 요청 처리, 응답
     ├── services/authService.js  # 비즈니스 로직 (DB 직접 쿼리)
     ├── services/emailService.js # 이메일 전송 (Nodemailer)
-    ├── middlewares/auth.js      # JWT 인증 미들웨어
+    ├── middlewares/auth.js    # JWT 인증 미들웨어
     ├── middlewares/validator.js # 검증 결과 처리
-    ├── utils/jwt.js             # JWT 생성/검증 유틸
-    └── utils/response.js        # 응답 포맷 (success, error)
+    ├── utils/jwt.js         # JWT 생성/검증 유틸
+    └── utils/response.js      # 응답 포맷 (success, error)
 
 설계 결정 사항
 --------------
@@ -375,14 +375,14 @@ Transaction Pooler vs Session Pooler
 작업 내용
 ---------
   1. infra.md 작성
-     - lookflex/docs/infra.md 형식을 참고하되 algoway에 맞게 조정
-     - 백엔드만 있는 프로젝트로 프론트엔드 관련 내용 제외
-     - Node.js + Express + Supabase 스택에 맞는 구조 설계
+    - lookflex/docs/infra.md 형식을 참고하되 algoway에 맞게 조정
+    - 백엔드만 있는 프로젝트로 프론트엔드 관련 내용 제외
+    - Node.js + Express + Supabase 스택에 맞는 구조 설계
 
   2. chat.log 작성
-     - algoway-old/logs.md의 내용을 lookflex/docs/chat.log 형식으로 재구성
-     - 과거 작업 내역 정리 (2026-02-25)
-     - 현재 작업 내역 추가 (2026-02-28)
+    - algoway-old/logs.md의 내용을 lookflex/docs/chat.log 형식으로 재구성
+    - 과거 작업 내역 정리 (2026-02-25)
+    - 현재 작업 내역 추가 (2026-02-28)
 
 생성된 문서
 -----------
@@ -432,62 +432,176 @@ Transaction Pooler vs Session Pooler
 다음 단계 (예정)
 ----------------
   1. Git 커밋 및 푸시
-     - 커밋 메시지: "docs: add infra.md and chat.log for project architecture"
+    - 커밋 메시지: "docs: add infra.md and chat.log for project architecture"
 
   2. 프로젝트 스캐폴딩 (chore: initial project scaffold)
-     - 폴더 구조 생성 (src/, scripts/, infra/, tests/)
-     - package.json 설정
-     - .env.example, .gitignore 생성
-     - Docker 파일 생성 (Dockerfile, docker-compose.yml)
+    - 폴더 구조 생성 (src/, scripts/, infra/, tests/)
+    - package.json 설정
+    - .env.example, .gitignore 생성
+    - Docker 파일 생성 (Dockerfile, docker-compose.yml)
 
   3. Supabase 연결 및 DB 초기화
-     - scripts/init-db.sql 실행
-     - src/config/database.js 구현
+    - scripts/init-db.sql 실행
+    - src/config/database.js 구현
 
   4. 인증 API 구현 (algoway-old 코드 이식)
-     - src/routes/auth.js
-     - src/controllers/authController.js
-     - src/services/authService.js
-     - src/middlewares/auth.js
+    - src/routes/auth.js
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/middlewares/auth.js
 
   5. 사용자 API 구현
-     - 프로필 조회/수정
-     - 탑승 내역 조회
-     - 즐겨찾는 경로 관리
+    - 프로필 조회/수정
+    - 탑승 내역 조회
+    - 즐겨찾는 경로 관리
 
   6. 팟 API 구현
-     - 팟 생성/조회/검색
-     - 팟 참여/나가기
-     - PostGIS 지리 검색
+    - 팟 생성/조회/검색
+    - 팟 참여/나가기
+    - PostGIS 지리 검색
 
   7. 채팅 API 구현
-     - 채팅방 목록
-     - 메시지 조회/전송
-     - Socket.io 실시간 통신
+    - 채팅방 목록
+    - 메시지 조회/전송
+    - Socket.io 실시간 통신
 
   8. 평가 API 구현
-     - 매너 평가 작성/조회
+    - 매너 평가 작성/조회
 
   9. 알림 API 구현
-     - 알림 목록 조회
-     - 알림 설정 관리
+    - 알림 목록 조회
+    - 알림 설정 관리
 
   10. 배포
-      - Railway 연동
-      - CI/CD 설정 (GitHub Actions)
+    - Railway 연동
+    - CI/CD 설정 (GitHub Actions)
 
 ================================================================================
+[2026-02-28] Docker 인프라 구성 및 브랜치 전략 수립
+================================================================================
 
-다음 커밋 예정
+배경
+----
+문서 작성 후 실제 개발 환경을 구축하기 위해 Docker 인프라를 구성한다.
+Supabase를 PostgreSQL로 사용하므로 로컬 PostgreSQL은 불필요하며,
+Redis + Backend만 Docker로 실행한다.
+
+브랜치 전략 수립
+---------------
+  - main: 운영 배포 브랜치
+  - dev: 개발 통합 브랜치 (새로 생성)
+  - feature/*: 기능 개발 브랜치 (dev에서 분기)
+
+작업 브랜치:
+  - feature/docker-setup (dev에서 분기)
+
+작업 내용
+---------
+  1. Docker 파일 생성
+    - docker-compose.yml: Redis + Backend 기본 구성
+    - docker-compose.dev.yml: 개발 환경 오버라이드 (hot-reload)
+    - Dockerfile: 프로덕션 멀티스테이지 빌드
+    - Dockerfile.dev: 개발용 단순 이미지
+
+  2. 인프라 설정 파일
+    - infra/redis/redis.conf: Redis 설정
+    - .env.example: 환경 변수 템플릿
+
+  3. 프로젝트 기본 파일
+    - package.json: 의존성 및 스크립트 정의
+    - .gitignore: 이미 존재 (chat.log 제외 설정 완료)
+
+설계 결정 사항
 --------------
-커밋 규칙: Git 커밋 생성 직전에 chat.log에 작업 내역을 먼저 기록한다.
-이번 커밋은 문서 작성이므로 chat.log가 함께 커밋된다.
+  - PostgreSQL 제외:
+    * Supabase 클라우드를 사용하므로 로컬 PostgreSQL 불필요
+    * algoway-old/.env에 Supabase 연결 정보 보유
+    * DATABASE_URL에 Transaction Pooler (Port 6543) 사용
 
-커밋 메시지:
-  docs: add infra.md and chat.log for project architecture
+  - Hot-reload 구현 (airflow 참고):
+    * docker-compose.dev.yml에서 볼륨 마운트
+    * ./src:/app/src → 소스 코드 변경 자동 반영
+    * ./server.js:/app/server.js → 진입점 변경 반영
+    * ./package.json:/app/package.json → 의존성 변경 감지
+    * /app/node_modules → 컨테이너 내부 것 사용 (호스트 덮어쓰기 방지)
 
-  - Create infra.md documenting backend architecture, Docker setup, database design,
-    authentication, real-time communication, and deployment strategy
-  - Create chat.log documenting project history and technical decisions from 2026-02-25
-    including API design, database schema, auth API implementation, and Supabase troubleshooting
-  - Reference lookflex project structure for documentation format
+  - Redis 설정:
+    * 최대 메모리: 256MB
+    * 메모리 정책: allkeys-lru (가장 오래된 키 제거)
+    * AOF (Append Only File) 활성화 → 데이터 지속성
+    * 개발 환경에서는 비밀번호 미설정 (프로덕션에서 설정 필요)
+
+  - Docker Compose 헬스체크:
+    * Redis: redis-cli ping
+    * Backend: Redis 헬스체크 완료 후 시작
+
+  - 환경 변수:
+    * REDIS_URL: redis://redis:6379 (Docker 네트워크 내부 호스트명)
+    * PORT: 3000 (호스트와 컨테이너 포트 매핑)
+    * NODE_ENV: development (dev.yml에서 오버라이드)
+
+실행 방법
+---------
+  ```bash
+  # .env 파일 생성 (algoway-old/.env 참고)
+  cp .env.example .env
+  # Supabase 정보 입력
+  
+  # 개발 환경 실행 (hot-reload)
+  docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+  
+  # 로그 확인
+  docker logs -f algoway-backend
+  
+  # 종료
+  docker compose down
+  
+  # 볼륨 포함 삭제
+  docker compose down -v
+  ```
+
+의존성 패키지 (package.json)
+----------------------------
+  주요 의존성:
+    - @supabase/supabase-js: Supabase 클라이언트
+    - express: 웹 프레임워크
+    - bcryptjs: 비밀번호 해싱
+    - jsonwebtoken: JWT 토큰
+    - express-validator: 입력 검증
+    - nodemailer: 이메일 전송
+    - pg: PostgreSQL 드라이버
+    - redis: Redis 클라이언트
+    - socket.io: 실시간 통신
+    - winston: 로깅
+
+  개발 의존성:
+    - nodemon: 개발 서버 hot-reload
+    - jest: 테스트 프레임워크
+    - eslint: 코드 린트
+    - prettier: 코드 포맷터
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/docker-setup → dev 머지
+    
+  2. 프로젝트 스캐폴딩 (feature/project-structure)
+    - src/ 폴더 구조 생성
+    - server.js 진입점 생성
+    - src/app.js Express 앱 설정
+    - src/config/database.js Supabase 연결
+    - src/config/redis.js Redis 연결
+
+  3. 인증 API 이식 (feature/auth)
+    - algoway-old 코드 이식
+    - src/routes/auth.js
+    - src/controllers/authController.js
+    - src/services/authService.js
+    - src/middlewares/auth.js
+
+  4. 나머지 API 구현
+    - Users API
+    - Pods API (PostGIS 지리 검색)
+    - Chat API (Socket.io)
+    - Rating API
+    - Notification API

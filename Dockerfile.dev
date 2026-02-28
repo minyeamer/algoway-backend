@@ -1,0 +1,17 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# 의존성 파일 복사
+COPY package*.json ./
+
+# 개발 의존성 포함 설치
+RUN npm install
+
+# 환경 변수
+ENV NODE_ENV=development
+
+# 포트 노출
+EXPOSE 3000
+
+# nodemon으로 개발 서버 실행 (소스는 볼륨 마운트로 연결됨)
+CMD ["npm", "run", "dev"]
