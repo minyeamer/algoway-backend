@@ -1134,15 +1134,266 @@ Node.js + PostgreSQL 환경에서의 네이밍 규칙은 다음과 같다:
 
 다음 단계 (예정)
 ----------------
-  1. 커밋 및 머지
-    - feature/database-case-mapping → dev 머지
-
-  2. 인증 API 구현 (feature/auth)
+  1. 인증 API 구현 (feature/auth) ✅ 완료
     - algoway-old 코드 이식 및 케이스 변환 적용
-    - authService: camelCase 사용
-    - SQL 쿼리: snake_case 사용
-    - API 응답: camelCase (자동 변환)
+    - 회원가입, 로그인, 이메일 인증, 토큰 갱신, 로그아웃
+    - 테스팅 문서 작성 (docs/testing-auth.md)
 
-  3. Repository 패턴 구현
-    - userRepository.js: 사용자 CRUD (camelCase ↔ snake_case 처리)
-    - 재사용 가능한 쿼리 메서드 구현
+  2. 사용자 API 구현 (feature/users)
+    - src/routes/users.js, userController.js, userService.js
+    - 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로
+    - 테스팅 문서 작성 (docs/testing-users.md)
+
+  3. 팟 API 구현 (feature/pods)
+    - src/routes/pods.js, podController.js, podService.js
+    - 팟 생성, 검색, 참여, 나가기, 상태 변경
+    - PostGIS 지리 쿼리 활용
+    - 테스팅 문서 작성 (docs/testing-pods.md)
+
+  4. 채팅 API 구현 (feature/chat)
+    - src/routes/chat.js, chatController.js, chatService.js
+    - 채팅방 목록, 메시지 조회/전송, 준비 상태
+    - Socket.io 연동 (실시간 메시지)
+    - 테스팅 문서 작성 (docs/testing-chat.md)
+
+================================================================================
+[2026-02-28] 인증 API 구현 및 케이스 변환 적용
+================================================================================
+
+배경
+----
+algoway-old 프로젝트에서 이미 구현된 인증 API를 새 프로젝트로 이식하면서,
+앞서 구현한 데이터베이스 케이스 변환 레이어(snake_case ↔ camelCase)를 실제로
+적용하여 완전한 인증 시스템을 구축했다.
+
+브랜치 전략
+----------
+  작업 브랜치: feature/auth
+  기반 브랜치: dev
+
+작업 내용
+---------
+1. 인증 관련 미들웨어 구현
+   - src/middlewares/errorHandler.js: 전역 에러 핸들러 및 404 핸들러
+   - src/middlewares/validator.js: express-validator 기반 입력 검증
+   - src/middlewares/auth.js: JWT 인증 미들웨어 (authenticateToken, requireVerified, optionalAuth)
+
+2. 이메일 서비스 구현
+   - src/services/emailService.js: Nodemailer 기반 이메일 전송
+   - 개발 환경: Ethereal Email (테스트용)
+   - 프로덕션 환경: 실제 SMTP 서버
+   - 인증 코드 이메일, 환영 이메일 템플릿
+
+3. 인증 서비스 구현 (케이스 변환 적용)
+   - src/services/authService.js: 핵심 비즈니스 로직
+   - 회원가입: bcrypt 해싱, 이메일 중복 체크
+   - 로그인: 비밀번호 검증, JWT 토큰 발급
+   - 인증 코드: 6자리 랜덤 코드 생성 및 검증
+   - 토큰 갱신: Refresh Token 교체
+   - 로그아웃: Refresh Token 삭제
+   - **케이스 변환**: database.js의 자동 변환 기능 활용
+     * SQL 쿼리는 snake_case (user_id, created_at)
+     * 서비스 레이어는 camelCase (userId, createdAt)
+     * 변환 레이어가 자동으로 처리
+
+4. 컨트롤러 및 라우트 구현
+   - src/controllers/authController.js: HTTP 요청/응답 처리
+   - src/routes/auth.js: 6개 엔드포인트 정의
+     * POST /v1/auth/signup (회원가입)
+     * POST /v1/auth/login (로그인)
+     * POST /v1/auth/verify/send (인증 코드 발송)
+     * POST /v1/auth/verify/confirm (인증 코드 확인)
+     * POST /v1/auth/refresh (토큰 갱신)
+     * POST /v1/auth/logout (로그아웃)
+
+5. Express 앱 통합
+   - src/app.js: auth 라우트 등록, 에러 핸들러 통합
+   - Health check 엔드포인트 유지
+
+6. 테스팅 문서 작성
+   - docs/testing-auth.md: 인증 API 테스트 가이드
+   - curl, REST Client 예시 제공
+   - 3가지 테스트 시나리오 (정상 흐름, 토큰 갱신, 에러 케이스)
+   - 개발 환경 이메일 확인 방법 (Ethereal URL)
+   - 디버깅 팁 및 다음 단계 안내
+
+구현된 엔드포인트 (6개)
+-----------------------
+  1. POST /v1/auth/signup
+    - 입력: email, password, userType, nickname
+    - 출력: userId, email, nickname, userType, isVerified
+    - 검증: 이메일 중복, 비밀번호 강도, 닉네임 형식
+    - 후처리: 환영 이메일 전송 (비동기)
+
+  2. POST /v1/auth/login
+    - 입력: email, password
+    - 출력: accessToken, refreshToken, user 정보
+    - 검증: 이메일/비밀번호 일치 여부
+    - 처리: bcrypt 비교, JWT 토큰 생성, Refresh Token DB 저장
+
+  3. POST /v1/auth/verify/send
+    - 입력: email, verificationType (student|employee|others)
+    - 출력: success, expiresIn
+    - 처리: 6자리 랜덤 코드 생성, DB 저장, 이메일 전송
+    - 만료 시간: 10분
+
+  4. POST /v1/auth/verify/confirm
+    - 인증 필요: Access Token (Bearer)
+    - 입력: email, verificationCode
+    - 출력: isVerified, badge, verifiedAt
+    - 처리: 코드 검증, is_used 업데이트, users 테이블 인증 상태 변경
+    - 뱃지: "학생 인증", "직장인 인증", "일반 인증"
+
+  5. POST /v1/auth/refresh
+    - 입력: refreshToken
+    - 출력: 새로운 accessToken, refreshToken
+    - 처리: Refresh Token 검증, 기존 토큰 삭제, 새 토큰 생성
+
+  6. POST /v1/auth/logout
+    - 인증 필요: Access Token (Bearer)
+    - 입력: refreshToken
+    - 출력: success
+    - 처리: Refresh Token DB에서 삭제
+
+케이스 변환 적용 사례
+--------------------
+authService.js에서 케이스 변환이 자동으로 처리되는 예시:
+
+  예시 1: 회원가입 (signup)
+    SQL 쿼리:
+      INSERT INTO users (email, password_hash, user_type, nickname)
+      RETURNING user_id, email, nickname, user_type, is_verified, created_at
+
+    반환값 (자동 변환):
+      {
+        userId: "550e8400-e29b-41d4-a716-446655440000",
+        email: "test@test.com",
+        nickname: "테스터",
+        userType: "student",
+        isVerified: false,
+        createdAt: "2026-02-28T12:00:00.000Z"
+      }
+
+    → database.js의 query() 함수가 자동으로 keysToCamel() 적용
+
+  예시 2: 로그인 (login)
+    SQL 쿼리:
+      SELECT user_id, email, password_hash, nickname, user_type, 
+             is_verified, verification_badge
+      FROM users WHERE email = $1
+
+    반환값 (자동 변환):
+      {
+        userId: "...",
+        email: "...",
+        passwordHash: "...",  // password_hash → passwordHash
+        nickname: "...",
+        userType: "...",      // user_type → userType
+        isVerified: false,    // is_verified → isVerified
+        verificationBadge: null  // verification_badge → verificationBadge
+      }
+
+    → 서비스 레이어에서 user.passwordHash, user.userId 등 camelCase로 접근 가능
+
+  예시 3: 인증 코드 확인 (confirmVerificationCode)
+    SQL 쿼리:
+      SELECT code_id, verification_type
+      FROM verification_codes
+      WHERE email = $1 AND code = $2 AND is_used = FALSE
+
+    반환값 (자동 변환):
+      {
+        codeId: "...",           // code_id → codeId
+        verificationType: "..."  // verification_type → verificationType
+      }
+
+    → 트랜잭션 내부 쿼리도 자동 변환 적용됨
+
+설계 결정 사항
+--------------
+  - 비밀번호 해싱: bcryptjs (salt rounds: 10)
+    이유: bcrypt는 Rainbow Table 공격에 강하고 계산 비용 조절 가능
+
+  - JWT 토큰 분리: Access Token (1시간), Refresh Token (7일)
+    이유: Access Token 탈취 시 피해 최소화, Refresh Token으로 갱신 가능
+
+  - 인증 코드: 6자리 랜덤 숫자 (10분 만료)
+    이유: 사용자 입력 편의성, 10분은 이메일 확인에 충분한 시간
+
+  - 이메일 서비스: Nodemailer + Ethereal (개발), SMTP (프로덕션)
+    이유: 개발 환경에서 실제 이메일 전송 없이 테스트 가능
+
+  - 에러 핸들링: 전역 에러 핸들러 + asyncHandler 래퍼
+    이유: try-catch 보일러플레이트 제거, 일관된 에러 응답 형식
+
+  - 검증: express-validator 미들웨어
+    이유: 선언적 검증, 에러 메시지 자동 생성, 보안 기능 내장
+
+  - 케이스 변환: 자동 변환 (수동 변환 불필요)
+    이유: 개발자 실수 방지, 일관된 네이밍 규칙, 코드 가독성 향상
+
+테스트 방법
+-----------
+docs/testing-auth.md에 상세한 테스트 가이드 제공.
+
+주요 테스트 시나리오:
+  1. 회원가입 → 로그인 → 이메일 인증
+  2. 토큰 만료 후 갱신
+  3. 에러 케이스 (중복 이메일, 잘못된 비밀번호, 만료 코드 등)
+
+개발 환경 이메일 확인 방법:
+  docker logs algoway-backend | grep "Preview URL"
+  → Ethereal Email URL로 인증 코드 확인
+
+검증 결과 (예상 - 실제 테스트 필요)
+----------------------------------
+  ✅ 회원가입 API: 중복 이메일 체크, 비밀번호 검증 동작 예상
+  ✅ 로그인 API: JWT 토큰 발급, Refresh Token DB 저장 예상
+  ✅ 이메일 인증: Ethereal Email로 코드 전송 예상
+  ✅ 코드 검증: 인증 완료 시 users.is_verified 업데이트 예상
+  ✅ 토큰 갱신: Refresh Token 교체 동작 예상
+  ✅ 로그아웃: Refresh Token 삭제 예상
+  ✅ 케이스 변환: snake_case ↔ camelCase 자동 변환 정상 동작 예상
+  ✅ 에러 핸들링: 중복 이메일(409), 잘못된 비밀번호(401), 만료 토큰(401) 등 에러 응답 예상
+
+주요 개선 사항 (algoway-old 대비)
+----------------------------------
+  1. 케이스 변환 레이어 적용
+    - algoway-old: 수동 변환 (user.user_id, user.is_verified)
+    - algoway: 자동 변환 (user.userId, user.isVerified)
+    - 장점: 개발자 실수 방지, 일관된 네이밍
+
+  2. 에러 핸들러 개선
+    - algoway-old: 기본 에러 핸들러
+    - algoway: PostgreSQL 에러, JWT 에러, 개발/프로덕션 분기
+    - 장점: 더 명확한 에러 메시지, 보안 향상
+
+  3. 로깅 강화
+    - algoway-old: console.log
+    - algoway: winston logger (파일 저장, 레벨 분리)
+    - 장점: 프로덕션 로그 관리 용이
+
+  4. 문서화
+    - algoway-old: 문서 없음
+    - algoway: API 명세(api.md), 테스팅 가이드(testing-auth.md), 의사결정 로그(chat.log)
+    - 장점: 팀 협업 및 유지보수 용이
+
+다음 단계
+---------
+  1. 인증 API 실제 테스트 및 검증
+    - 서버 실행 후 testing-auth.md의 시나리오 실행
+    - 발견된 버그 수정
+
+  2. feature/auth → dev 머지
+    - 커밋 메시지: "feat(auth): implement authentication API with case conversion"
+    - PR 생성 및 코드 리뷰
+
+  3. 사용자 API 구현 (feature/users)
+    - 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로
+    - Repository 패턴 도입 고려
+
+  4. 팟 API 구현 (feature/pods)
+    - PostGIS 지리 쿼리 활용
+    - 복잡한 검색 조건 처리
+
+

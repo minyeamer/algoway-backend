@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const logger = require('./utils/logger');
 const { successResponse } = require('./utils/response');
+const { notFoundHandler, globalErrorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
@@ -35,8 +36,8 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API 라우트 (추후 추가)
-// app.use('/v1/auth', require('./routes/auth'));
+// API 라우트
+app.use('/v1/auth', require('./routes/auth'));
 // app.use('/v1/users', require('./routes/users'));
 // app.use('/v1/pods', require('./routes/pods'));
 // app.use('/v1/chat', require('./routes/chat'));
@@ -44,40 +45,9 @@ app.get('/health', (req, res) => {
 // app.use('/v1/notifications', require('./routes/notifications'));
 
 // 404 처리
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    error: {
-      code: 'NOT_FOUND',
-      message: `Cannot ${req.method} ${req.path}`,
-    },
-  });
-});
+app.use(notFoundHandler);
 
-// 에러 핸들러
-app.use((err, req, res, next) => {
-  logger.error('Error:', {
-    message: err.message,
-    stack: err.stack,
-    path: req.path,
-    method: req.method,
-  });
-
-  const statusCode = err.statusCode || 500;
-  const response = {
-    success: false,
-    error: {
-      code: err.code || 'INTERNAL_SERVER_ERROR',
-      message: err.message || 'An unexpected error occurred',
-    },
-  };
-
-  // 개발 환경에서는 스택 트레이스 포함
-  if (process.env.NODE_ENV === 'development') {
-    response.error.stack = err.stack;
-  }
-
-  res.status(statusCode).json(response);
-});
+// 전역 에러 핸들러
+app.use(globalErrorHandler);
 
 module.exports = app;
