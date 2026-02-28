@@ -5,6 +5,24 @@ GitHub Copilot과의 협업 시 적용되는 규칙과 워크플로우를 정의
 
 ---
 
+## 버전 관리 규칙
+
+`package.json`의 `version` 필드를 [Semantic Versioning](https://semver.org) 기준으로 관리한다.
+
+| 상황 | 버전 변경 | 예시 |
+|---|---|---|
+| feature 브랜치 내 커밋 (기능 변경, 버그 수정, 문서 수정 등) | **patch** +1 | 1.2.0 → 1.2.1 |
+| feature 완료 후 **main 브랜치에 release** | **minor** +1 | 1.2.x → 1.3.0 |
+| 메이저 버전 변경 | **사용자 판단** — AI가 임의로 올리지 않는다 | x.0.0 |
+
+### 규칙
+
+- 버전 변경은 **chat.log 업데이트, 코드 변경과 같은 커밋**에 포함한다
+- release 커밋(main 반영) 시 minor를 올리고 patch는 0으로 초기화한다
+- 현재 버전 기준: `1.2.0` (auth=1.1, users=1.2)
+
+---
+
 ## 커밋 & 푸시 규칙
 
 - **커밋 전에 반드시 chat.log를 먼저 업데이트**한다
