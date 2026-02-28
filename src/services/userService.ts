@@ -1,28 +1,51 @@
-const { query } = require('../config/database');
-const { ERROR_CODES } = require('../config/constants');
-const logger = require('../utils/logger');
+import { query } from '../config/database';
+import { ERROR_CODES } from '../config/constants';
+import type { FavoriteRoute, PaginatedResult, RideItem, PlaceInfo } from '../types';
+
+type UserRow = {
+  userId: string;
+  email: string;
+  nickname: string;
+  profileImage: string | null;
+  userType: string;
+  isVerified: boolean;
+  verificationBadge: string | null;
+  mannerScore: string;
+  totalRides: number;
+  createdAt: Date;
+};
+
+type PublicUserRow = Omit<UserRow, 'email'>;
+
+type FavoriteRaw = {
+  favoriteId: string;
+  departurePlaceName: string;
+  departureLat: string;
+  departureLng: string;
+  arrivalPlaceName: string;
+  arrivalLat: string;
+  arrivalLng: string;
+  createdAt: Date;
+};
+
+const makeError = (message: string, code: string, statusCode: number): Error =>
+  Object.assign(new Error(message), { code, statusCode });
 
 /**
  * 내 프로필 조회
- * @param {string} userId - 사용자 UUID
- * @returns {Object} 프로필 정보 (camelCase)
  */
-const getMyProfile = async (userId) => {
-  const result = await query(
-    `SELECT
-       user_id, email, nickname, profile_image,
-       user_type, is_verified, verification_badge,
-       manner_score, total_rides, created_at
+export const getMyProfile = async (userId: string): Promise<UserRow> => {
+  const result = await query<UserRow>(
+    `SELECT user_id, email, nickname, profile_image,
+            user_type, is_verified, verification_badge,
+            manner_score, total_rides, created_at
      FROM users
      WHERE user_id = $1`,
     [userId]
   );
 
   if (result.rows.length === 0) {
-    const error = new Error('사용자를 찾을 수 없습니다.');
-    error.code = ERROR_CODES.NOT_FOUND;
-    error.statusCode = 404;
-    throw error;
+    throw makeError('사용자를 찾을 수 없습니다.', ERROR_CODES.NOT_FOUND, 404);
   }
 
   return result.rows[0];
@@ -30,22 +53,17 @@ const getMyProfile = async (userId) => {
 
 /**
  * 프로필 수정
- * @param {string} userId - 사용자 UUID
- * @param {Object} updateData - { nickname?, profileImage? }
- * @returns {Object} 수정된 프로필 (camelCase)
  */
-const updateMyProfile = async (userId, updateData) => {
+export const updateMyProfile = async (
+  userId: string,
+  updateData: { nickname?: string; profileImage?: string | null }
+): Promise<Omit<UserRow, 'createdAt'>> => {
   const { nickname, profileImage } = updateData;
 
-  // 변경할 필드가 없는 경우
   if (!nickname && profileImage === undefined) {
-    const error = new Error('수정할 내용이 없습니다.');
-    error.code = ERROR_CODES.INVALID_INPUT;
-    error.statusCode = 400;
-    throw error;
+    throw makeError('수정할 내용이 없습니다.', ERROR_CODES.INVALID_INPUT, 400);
   }
 
-  // 닉네임 중복 확인
   if (nickname) {
     const existing = await query(
       'SELECT user_id FROM users WHERE nickname = $1 AND user_id != $2',
@@ -53,16 +71,12 @@ const updateMyProfile = async (userId, updateData) => {
     );
 
     if (existing.rows.length > 0) {
-      const error = new Error('이미 사용 중인 닉네임입니다.');
-      error.code = ERROR_CODES.ALREADY_EXISTS;
-      error.statusCode = 409;
-      throw error;
+      throw makeError('이미 사용 중인 닉네임입니다.', ERROR_CODES.ALREADY_EXISTS, 409);
     }
   }
 
-  // 동적 SET 절 구성
-  const setClauses = ['updated_at = NOW()'];
-  const values = [];
+  const setClauses: string[] = ['updated_at = NOW()'];
+  const values: unknown[] = [];
   let idx = 1;
 
   if (nickname) {
@@ -77,7 +91,7 @@ const updateMyProfile = async (userId, updateData) => {
 
   values.push(userId);
 
-  const result = await query(
+  const result = await query<Omit<UserRow, 'createdAt'>>(
     `UPDATE users
      SET ${setClauses.join(', ')}
      WHERE user_id = $${idx}
@@ -90,25 +104,19 @@ const updateMyProfile = async (userId, updateData) => {
 
 /**
  * 특정 사용자 공개 프로필 조회
- * @param {string} userId - 대상 사용자 UUID
- * @returns {Object} 공개 프로필 (이메일, 비밀번호 제외)
  */
-const getUserProfile = async (userId) => {
-  const result = await query(
-    `SELECT
-       user_id, nickname, profile_image,
-       user_type, is_verified, verification_badge,
-       manner_score, total_rides, created_at
+export const getUserProfile = async (userId: string): Promise<PublicUserRow> => {
+  const result = await query<PublicUserRow>(
+    `SELECT user_id, nickname, profile_image,
+            user_type, is_verified, verification_badge,
+            manner_score, total_rides, created_at
      FROM users
      WHERE user_id = $1`,
     [userId]
   );
 
   if (result.rows.length === 0) {
-    const error = new Error('사용자를 찾을 수 없습니다.');
-    error.code = ERROR_CODES.NOT_FOUND;
-    error.statusCode = 404;
-    throw error;
+    throw makeError('사용자를 찾을 수 없습니다.', ERROR_CODES.NOT_FOUND, 404);
   }
 
   return result.rows[0];
@@ -116,13 +124,13 @@ const getUserProfile = async (userId) => {
 
 /**
  * 탑승 내역 조회
- * @param {string} userId - 사용자 UUID
- * @param {Object} options - { page, limit, status? }
- * @returns {Object} { items, total }
  */
-const getMyRides = async (userId, { page = 1, limit = 20, status } = {}) => {
+export const getMyRides = async (
+  userId: string,
+  { page = 1, limit = 20, status }: { page?: number; limit?: number; status?: string } = {}
+): Promise<PaginatedResult<RideItem>> => {
   const offset = (page - 1) * limit;
-  const values = [userId];
+  const values: unknown[] = [userId];
   let statusClause = '';
 
   if (status) {
@@ -130,7 +138,7 @@ const getMyRides = async (userId, { page = 1, limit = 20, status } = {}) => {
     statusClause = `AND p.status = $${values.length}`;
   }
 
-  const countResult = await query(
+  const countResult = await query<{ total: string }>(
     `SELECT COUNT(*) AS total
      FROM pod_participants pp
      JOIN pods p ON pp.pod_id = p.pod_id
@@ -142,7 +150,7 @@ const getMyRides = async (userId, { page = 1, limit = 20, status } = {}) => {
 
   values.push(limit, offset);
 
-  const result = await query(
+  const result = await query<RideItem>(
     `SELECT
        p.pod_id, p.departure_place_name, p.arrival_place_name,
        p.departure_time, p.vehicle_type, p.status,
@@ -163,13 +171,26 @@ const getMyRides = async (userId, { page = 1, limit = 20, status } = {}) => {
   return { items: result.rows, total };
 };
 
+const toFavoriteRoute = (row: FavoriteRaw): FavoriteRoute => ({
+  favoriteId: row.favoriteId,
+  departurePlace: {
+    name: row.departurePlaceName,
+    lat: parseFloat(row.departureLat),
+    lng: parseFloat(row.departureLng),
+  },
+  arrivalPlace: {
+    name: row.arrivalPlaceName,
+    lat: parseFloat(row.arrivalLat),
+    lng: parseFloat(row.arrivalLng),
+  },
+  createdAt: row.createdAt,
+});
+
 /**
  * 즐겨찾는 경로 목록 조회
- * @param {string} userId - 사용자 UUID
- * @returns {Array} 즐겨찾는 경로 목록
  */
-const getFavorites = async (userId) => {
-  const result = await query(
+export const getFavorites = async (userId: string): Promise<FavoriteRoute[]> => {
+  const result = await query<FavoriteRaw>(
     `SELECT
        favorite_id,
        departure_place_name,
@@ -185,30 +206,17 @@ const getFavorites = async (userId) => {
     [userId]
   );
 
-  return result.rows.map(row => ({
-    favoriteId: row.favoriteId,
-    departurePlace: {
-      name: row.departurePlaceName,
-      lat: parseFloat(row.departureLat),
-      lng: parseFloat(row.departureLng),
-    },
-    arrivalPlace: {
-      name: row.arrivalPlaceName,
-      lat: parseFloat(row.arrivalLat),
-      lng: parseFloat(row.arrivalLng),
-    },
-    createdAt: row.createdAt,
-  }));
+  return result.rows.map(toFavoriteRoute);
 };
 
 /**
  * 즐겨찾는 경로 추가
- * @param {string} userId - 사용자 UUID
- * @param {Object} data - { departurePlace, arrivalPlace }
- * @returns {Object} 추가된 경로 정보
  */
-const addFavorite = async (userId, { departurePlace, arrivalPlace }) => {
-  const result = await query(
+export const addFavorite = async (
+  userId: string,
+  { departurePlace, arrivalPlace }: { departurePlace: PlaceInfo; arrivalPlace: PlaceInfo }
+): Promise<FavoriteRoute> => {
+  const result = await query<FavoriteRaw>(
     `INSERT INTO favorite_routes
        (user_id, departure_place_name, departure_location, arrival_place_name, arrival_location)
      VALUES
@@ -233,48 +241,19 @@ const addFavorite = async (userId, { departurePlace, arrivalPlace }) => {
     ]
   );
 
-  const row = result.rows[0];
-  return {
-    favoriteId: row.favoriteId,
-    departurePlace: {
-      name: row.departurePlaceName,
-      lat: parseFloat(row.departureLat),
-      lng: parseFloat(row.departureLng),
-    },
-    arrivalPlace: {
-      name: row.arrivalPlaceName,
-      lat: parseFloat(row.arrivalLat),
-      lng: parseFloat(row.arrivalLng),
-    },
-    createdAt: row.createdAt,
-  };
+  return toFavoriteRoute(result.rows[0]);
 };
 
 /**
  * 즐겨찾는 경로 삭제
- * @param {string} userId - 사용자 UUID
- * @param {string} favoriteId - 경로 UUID
  */
-const deleteFavorite = async (userId, favoriteId) => {
+export const deleteFavorite = async (userId: string, favoriteId: string): Promise<void> => {
   const result = await query(
     'DELETE FROM favorite_routes WHERE favorite_id = $1 AND user_id = $2 RETURNING favorite_id',
     [favoriteId, userId]
   );
 
   if (result.rows.length === 0) {
-    const error = new Error('즐겨찾는 경로를 찾을 수 없습니다.');
-    error.code = ERROR_CODES.NOT_FOUND;
-    error.statusCode = 404;
-    throw error;
+    throw makeError('즐겨찾는 경로를 찾을 수 없습니다.', ERROR_CODES.NOT_FOUND, 404);
   }
-};
-
-module.exports = {
-  getMyProfile,
-  updateMyProfile,
-  getUserProfile,
-  getMyRides,
-  getFavorites,
-  addFavorite,
-  deleteFavorite,
 };

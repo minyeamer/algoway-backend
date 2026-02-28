@@ -13,5 +13,5 @@ ENV NODE_ENV=development
 # 포트 노출
 EXPOSE 3000
 
-# nodemon으로 개발 서버 실행 (소스는 볼륨 마운트로 연결됨)
+# nodemon → ts-node-dev으로 개발 서버 실행 (소스는 볼륨 마운트로 연결됨)
 CMD ["npm", "run", "dev"]
