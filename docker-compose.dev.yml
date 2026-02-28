@@ -12,4 +12,23 @@ services:
       - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
     environment:
       NODE_ENV: development
+      REDIS_URL: redis://redis:6379
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_USER: ""
+      SMTP_PASS: ""
     command: npm run dev                  # nodemon 실행
+    depends_on:
+      - mailpit
+
+  # 개발용 메일 캐처 (인터넷 불필요)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: algoway-mailpit
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    networks:
+      - algoway-network
+    restart: unless-stopped

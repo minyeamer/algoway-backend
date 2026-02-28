@@ -4,7 +4,14 @@ const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = requir
 const { sendVerificationEmail, sendWelcomeEmail } = require('./emailService');
 const { keysToSnake } = require('../utils/caseConverter');
 const { VERIFICATION_CODE, ERROR_CODES } = require('../config/constants');
+const redis = require('../config/redis');
 const logger = require('../utils/logger');
+
+const BADGE_MAP = {
+  student: '학생 인증',
+  employee: '직장인 인증',
+  others: '일반 인증'
+};
 
 /**
  * 인증 코드 생성 (6자리 숫자)
@@ -21,7 +28,17 @@ const generateVerificationCode = () => {
  * @param {string} nickname - 닉네임
  * @returns {Object} 생성된 사용자 정보 (camelCase)
  */
-const signup = async (email, password, userType, nickname) => {
+const signup = async (email, password, nickname) => {
+  // 이메일 인증 완료 여부 확인 (verify/confirm 후 Redis에 저장된 값)
+  const verifiedType = await redis.get(`email_verified:${email}`);
+
+  if (!verifiedType) {
+    const error = new Error('이메일 인증을 먼저 완료해주세요.');
+    error.code = ERROR_CODES.FORBIDDEN;
+    error.statusCode = 403;
+    throw error;
+  }
+
   // 이메일 중복 체크
   const existingUser = await query(
     'SELECT user_id FROM users WHERE email = $1',
@@ -38,31 +55,20 @@ const signup = async (email, password, userType, nickname) => {
   // 비밀번호 해싱
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // 사용자 생성 (database.js가 자동으로 camelCase로 변환)
+  const badge = BADGE_MAP[verifiedType] || '일반 인증';
+
+  // 이미 인증된 상태로 사용자 생성 (database.js가 자동으로 camelCase로 변환)
   const result = await query(
-    `INSERT INTO users (email, password_hash, user_type, nickname)
-     VALUES ($1, $2, $3, $4)
-     RETURNING user_id, email, nickname, user_type, is_verified, created_at`,
-    [email, passwordHash, userType, nickname]
+    `INSERT INTO users (email, password_hash, user_type, nickname, is_verified, verification_badge)
+     VALUES ($1, $2, $3, $4, TRUE, $5)
+     RETURNING user_id, email, nickname, user_type, is_verified, verification_badge, created_at`,
+    [email, passwordHash, verifiedType, nickname, badge]
   );
 
   const user = result.rows[0]; // 이미 camelCase로 변환됨
 
-  // 이메일 인증 코드 자동 발송
-  const code = generateVerificationCode();
-  const expiresAt = new Date();
-  expiresAt.setMinutes(expiresAt.getMinutes() + VERIFICATION_CODE.EXPIRY_MINUTES);
-
-  await query(
-    `INSERT INTO verification_codes (email, code, verification_type, expires_at)
-     VALUES ($1, $2, $3, $4)`,
-    [email, code, userType, expiresAt]
-  );
-
-  // 인증 코드 이메일 전송
-  sendVerificationEmail(email, code, userType).catch(err => {
-    logger.error('인증 코드 이메일 전송 실패:', err);
-  });
+  // Redis 인증 키 삭제
+  await redis.del(`email_verified:${email}`);
 
   // 환영 이메일 전송 (비동기, 실패해도 괜찮음)
   sendWelcomeEmail(email, nickname).catch(err => {
@@ -75,7 +81,7 @@ const signup = async (email, password, userType, nickname) => {
     nickname: user.nickname,
     userType: user.userType,
     isVerified: user.isVerified,
-    verificationRequired: true
+    verificationBadge: user.verificationBadge
   };
 };
 
@@ -109,14 +115,6 @@ const login = async (email, password) => {
     const error = new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
     error.code = ERROR_CODES.INVALID_CREDENTIALS;
     error.statusCode = 401;
-    throw error;
-  }
-
-  // 이메일 인증 확인
-  if (!user.isVerified) {
-    const error = new Error('이메일 인증이 필요합니다. 회원가입 시 발송된 인증 코드를 확인해주세요.');
-    error.code = ERROR_CODES.FORBIDDEN;
-    error.statusCode = 403;
     throw error;
   }
 
@@ -204,28 +202,16 @@ const confirmVerificationCode = async (email, verificationCode) => {
   }
 
   const verification = result.rows[0]; // camelCase로 변환됨
-  const badge = {
-    student: '학생 인증',
-    employee: '직장인 인증',
-    others: '일반 인증'
-  }[verification.verificationType] || '일반 인증';
+  const badge = BADGE_MAP[verification.verificationType] || '일반 인증';
 
-  // 트랜잭션으로 처리 (자동 camelCase 변환 적용됨)
-  await transaction(async (client) => {
-    // 인증 코드 사용 처리
-    await client.query(
-      'UPDATE verification_codes SET is_used = TRUE WHERE code_id = $1',
-      [verification.codeId]
-    );
+  // 인증 코드 사용 처리
+  await query(
+    'UPDATE verification_codes SET is_used = TRUE WHERE code_id = $1',
+    [verification.codeId]
+  );
 
-    // 사용자 인증 상태 업데이트 (이메일로 조회)
-    await client.query(
-      `UPDATE users 
-       SET is_verified = TRUE, verification_badge = $1
-       WHERE email = $2`,
-      [badge, email]
-    );
-  });
+  // 인증된 이메일을 Redis에 저장 (1시간 유효 — 이 안에 회원가입 완료해야 함)
+  await redis.set(`email_verified:${email}`, verification.verificationType, 3600);
 
   return {
     isVerified: true,

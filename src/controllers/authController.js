@@ -7,14 +7,14 @@ const { successResponse } = require('../utils/response');
  */
 const signup = async (req, res, next) => {
   try {
-    const { email, password, userType, nickname } = req.body;
+    const { email, password, nickname } = req.body;
 
-    const user = await authService.signup(email, password, userType, nickname);
+    const user = await authService.signup(email, password, nickname);
 
     return successResponse(
       res,
       user,
-      '회원가입이 완료되었습니다. 이메일 인증을 진행해주세요.',
+      '회원가입이 완료되었습니다.',
       201
     );
   } catch (error) {
@@ -48,7 +48,7 @@ const sendVerificationCode = async (req, res, next) => {
 
     await authService.sendVerificationCode(email, verificationType);
 
-    return successResponse(res, null, '인증 코드가 발송되었습니다.');
+    return successResponse(res, null, '인증 코드가 재발송되었습니다.');
   } catch (error) {
     next(error);
   }

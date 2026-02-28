@@ -12,18 +12,76 @@
 
 ## 1. 인증 (Authentication)
 
-### 1.1. 회원가입
+> **회원가입 플로우**: `verify/send` → `verify/confirm` → `signup` → `login`
+>
+> 이메일 인증이 완료되어야 회원가입 버튼이 활성화됩니다. users 테이블에는 인증된 사용자만 저장됩니다.
+
+### 1.1. 이메일 인증 코드 발송
+
+```
+POST /v1/auth/verify/send
+```
+
+**Note**: 회원가입 전 반드시 먼저 호출해야 합니다. 인증 코드 유효 시간은 10분입니다.
+
+**Request Body**
+```json
+{
+  "email": "user@university.ac.kr",
+  "verificationType": "student"  // "student" | "employee" | "others"
+}
+```
+
+**Response - 200 OK**
+```json
+{
+  "success": true,
+  "message": "인증 코드가 발송되었습니다."
+}
+```
+
+### 1.2. 이메일 인증 코드 확인
+
+```
+POST /v1/auth/verify/confirm
+```
+
+**Note**: 인증 완료 후 1시간 이내에 회원가입을 완료해야 합니다.
+
+**Request Body**
+```json
+{
+  "email": "user@university.ac.kr",
+  "verificationCode": "123456"
+}
+```
+
+**Response - 200 OK**
+```json
+{
+  "success": true,
+  "data": {
+    "isVerified": true,
+    "badge": "학생 인증",
+    "verifiedAt": "2026-02-23T10:30:00Z"
+  },
+  "message": "인증이 완료되었습니다."
+}
+```
+
+### 1.3. 회원가입
 
 ```
 POST /v1/auth/signup
 ```
+
+**Note**: `verify/confirm` 이후 1시간 이내에만 호출 가능합니다. `userType`은 인증 단계에서 결정됩니다.
 
 **Request Body**
 ```json
 {
   "email": "user@example.com",
   "password": "password123!",
-  "userType": "student",  // "student" | "employee" | "others"
   "nickname": "홍길동"
 }
 ```
@@ -37,16 +95,25 @@ POST /v1/auth/signup
     "email": "user@example.com",
     "nickname": "홍길동",
     "userType": "student",
-    "isVerified": false,
-    "verificationRequired": true
+    "isVerified": true,
+    "verificationBadge": "학생 인증"
   },
-  "message": "회원가입이 완료되었습니다. 이메일로 발송된 인증 코드를 확인해주세요."
+  "message": "회원가입이 완료되었습니다."
 }
 ```
 
-**Note**: 회원가입 시 자동으로 인증 코드가 이메일로 발송됩니다. 인증 완료 후 로그인이 가능합니다.
+**Error Response - 403 Forbidden (이메일 미인증)**
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "이메일 인증을 먼저 완료해주세요."
+  }
+}
+```
 
-### 1.2. 로그인
+### 1.4. 로그인
 
 ```
 POST /v1/auth/login
@@ -79,70 +146,6 @@ POST /v1/auth/login
 }
 ```
 
-**Error Response - 403 Forbidden (이메일 미인증)**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "FORBIDDEN",
-    "message": "이메일 인증이 필요합니다. 회원가입 시 발송된 인증 코드를 확인해주세요."
-  }
-}
-```
-
-### 1.3. 이메일 인증 코드 재발송
-
-```
-POST /v1/auth/verify/send
-```
-
-**Note**: 회원가입 시 자동으로 인증 코드가 발송됩니다. 이 API는 코드를 받지 못했거나 만료된 경우에만 사용하세요.
-
-**Request Body**
-```json
-{
-  "email": "user@university.ac.kr",
-  "verificationType": "student"  // "student" | "employee" | "others"
-}
-```
-
-**Response - 200 OK**
-```json
-{
-  "success": true,
-  "message": "인증 코드가 재발송되었습니다."
-}
-```
-
-### 1.4. 이메일 인증 코드 확인
-
-```
-POST /v1/auth/verify/confirm
-``Note**: 인증 완료 후 로그인이 가능합니다.
-
-**`
-
-**Request Body**
-```json
-{
-  "email": "user@university.ac.kr",
-  "verificationCode": "123456"
-}
-```
-
-**Response - 200 OK**
-```json
-{
-  "success": true,
-  "data": {
-    "isVerified": true,
-    "badge": "학생 인증",
-    "verifiedAt": "2026-02-23T10:30:00Z"
-  },
-  "message": "인증이 완료되었습니다."
-}
-```
-
 ### 1.5. 토큰 갱신
 
 ```
@@ -166,6 +169,29 @@ POST /v1/auth/refresh
   }
 }
 ```
+
+### 1.6. 로그아웃
+
+```
+POST /v1/auth/logout
+```
+
+**Request Body**
+```json
+{
+  "refreshToken": "eyJhbGci..."
+}
+```
+
+**Response - 200 OK**
+```json
+{
+  "success": true,
+  "message": "로그아웃되었습니다."
+}
+```
+
+**Note**: Refresh Token만으로 로그아웃 처리됩니다. 해당 토큰은 즉시 무효화됩니다.
 
 ---
 

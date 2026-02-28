@@ -67,7 +67,6 @@ router.post(
  */
 router.post(
   '/logout',
-  authenticateToken,
   asyncHandler(authController.logout)
 );
 

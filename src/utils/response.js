@@ -1,13 +1,17 @@
 /**
  * 성공 응답 헬퍼
  */
-const successResponse = (res, data = null, statusCode = 200) => {
+const successResponse = (res, data = null, message = null, statusCode = 200) => {
   const response = {
     success: true,
   };
 
   if (data !== null) {
     response.data = data;
+  }
+
+  if (message !== null) {
+    response.message = message;
   }
 
   return res.status(statusCode).json(response);
