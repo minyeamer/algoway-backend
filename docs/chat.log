@@ -1895,9 +1895,9 @@ logout은 access token 인증이 불필요:
 
 테스팅 문서 경로 정리
 -------------------
-  docs/testing-auth.md, testing-users.md → docs/testing/ 폴더로 통합
-    - docs/testing/01-auth.md
-    - docs/testing/02-users.md
+  docs/testing-auth.md, testing-users.md → docs/testing/ 폴더로 통합 (이후 docs/tests/로 이동)
+    - docs/tests/01-auth.md
+    - docs/tests/02-users.md
   docs/ai-guidelines.md 및 02-users.md 내 경로 참조 업데이트
   임시 테스트 스크립트(scripts/test-migration.sh)는 temp/ 폴더로 이동 후
   .gitignore에 temp/ 등록하여 버전관리 제외
@@ -1937,4 +1937,126 @@ logout은 access token 인증이 불필요:
 ---------
   feature/users → dev 병합 → main 반영 → 브랜치 삭제
   다음 기능: feature/pods (카풀 팟 API)
+
+================================================================================
+[2026-03-01] Pods API 구현 (feature/pods)
+================================================================================
+
+배경
+----
+카풀 팟(Pod) 기능은 알고타의 핵심 기능으로, 사용자들이 팟을 생성·참여하고
+위치 기반으로 주변 팟을 탐색하는 API가 필요하다.
+feature/pods 브랜치에서 구현 후 dev → main으로 병합 예정.
+
+브랜치 전략
+-----------
+  feature/pods  ← 현재 브랜치
+  └── dev
+      └── main
+
+구현 범위
+----------
+  신규 파일 4개:
+    src/types/index.ts         — Pod 관련 타입 10개 추가 (PodStatus, PodSummary, PodDetail 등)
+    src/middlewares/validator.ts — Pod 검증 미들웨어 4개 추가
+    src/services/podService.ts — 팟 서비스 7개 함수
+    src/controllers/podController.ts — 팟 컨트롤러 7개 핸들러
+    src/routes/pods.ts         — 팟 라우터 (GET /search를 /:podId 앞에 선언)
+  수정 파일 1개:
+    src/app.ts                 — podsRouter import 및 app.use 등록
+
+주요 기술 결정
+--------------
+  1. PostGIS 활용:
+    - ST_Point(lng, lat)::GEOGRAPHY로 좌표 저장
+    - ST_DWithin으로 반경 필터, ST_Distance로 거리 계산 (정수 반올림)
+    - ST_X(), ST_Y()로 GEOGRAPHY → 위도/경도 추출
+
+  2. DB 트리거 신뢰:
+    - on_pod_created: 팟 생성 → chat_rooms 자동 생성 + 방장 pod_participants 추가
+    - on_pod_participant_added: current_participants 자동 증분 + full 자동 전환
+    - on_pod_participant_removed: current_participants 자동 감소 + recruiting 복귀
+    서비스 로직에서 이 값들을 직접 갱신하지 않고 트리거에 위임
+
+  3. GET /search 라우트 우선순위:
+    Express 라우터에서 /:podId 파라미터 라우트 앞에 /search 고정 경로를 선언해야
+    "search"가 podId UUID로 오인되는 문제를 방지
+
+  4. 기존 컨트롤러 패턴 준수:
+    - asyncHandler 대신 plain async + try/catch/next(error) 사용
+    - successResponse(res, data, message?, statusCode?) — res가 첫 번째 인자
+    - paginatedResponse(res, items, total, page, limit)
+
+엔드포인트 검증 결과
+--------------------
+  Pods API (7개):
+    ✅ POST /v1/pods             — 팟 생성 (DB 트리거로 chatRoomId 자동 생성)
+    ✅ GET  /v1/pods             — 위치 기반 목록 (distance 계산, cancelled/completed 제외)
+    ✅ GET  /v1/pods/search      — 다중 필터 검색 (출발/도착 반경, 시간, verifiedOnly, vehicleType)
+    ✅ GET  /v1/pods/:podId      — 상세 조회 (participants[], chatRoomId, creator.mannerScore)
+    ✅ POST /v1/pods/:podId/join — 팟 참여 (ALREADY_JOINED 에러 케이스 확인)
+    ✅ POST /v1/pods/:podId/leave — 팟 나가기 (CREATOR_CANNOT_LEAVE 에러 케이스 확인)
+    ✅ PATCH /v1/pods/:podId/status — 상태 변경 (recruiting → in_progress 정상)
+
+버전
+----
+  1.2.0 → 1.2.1 (feature 커밋: patch +1)
+
+다음 단계
+---------
+  feature/pods → dev 병합 → main 반영 → 브랜치 삭제
+  다음 기능: feature/chat (채팅 API) 또는 feature/matching (매칭 알고리즘)
+
+================================================================================
+[2026-03-01] 테스트 경로 정리 (tests/ 제거, docs/testing/ → docs/tests/)
+================================================================================
+
+배경
+----
+  - tests/ 디렉터리: 자동화 테스트(Jest/Supertest) 코드용 플레이스홀더로 생성됐으나
+    테스트 프레임워크 미설치, 파일은 .gitkeep만 존재하여 실질적 가치 없음.
+  - docs/testing/ 디렉터리: 수동 cURL 테스트 가이드 문서. 용도가 명확히 다름.
+  - 미래에 자동화 테스트를 도입할 시점에 필요한 구조를 갖추는 것이 맞으므로,
+    현재는 불필요한 빈 디렉터리를 제거하고 문서 경로를 간결하게 정리한다.
+
+변경 내용
+---------
+  1. tests/ 디렉터리 삭제 (.gitkeep 포함)
+  2. docs/testing/ → docs/tests/ 이름 변경
+  3. 내부 경로 참조 업데이트:
+    - docs/tests/02-users.md
+    - docs/tests/03-pods.md
+    - docs/ai-guidelines.md
+    - docs/infra.md (폴더 구조에서 tests/ 항목 제거)
+    - docs/chat.log (이전 항목의 docs/testing/ 참조 수정)
+
+설계 결정 사항
+--------------
+  - tests/ vs docs/tests/ 역할 구분:
+    tests/      → 자동화 테스트 코드 (미래: Jest + Supertest)
+    docs/tests/ → 수동 cURL 테스트 가이드 (현재 사용 중)
+    자동화 테스트 도입 시 tests/ 디렉터리를 재생성하고 jest.config.ts 등을 함께 구성한다.
+
+================================================================================
+[2026-03-01] infra.md 폴더 구조 현행화 및 버전 1.3.0 릴리즈
+================================================================================
+
+작업 내용
+---------
+  1. docs/infra.md §3 전체 폴더 구조를 현재 실제 파일 트리로 업데이트
+    - JavaScript → TypeScript 전환 반영 (*.js → *.ts, server.ts, tsconfig.json)
+    - docs/tests/ 디렉터리 반영 (testing/ 제거 후 변경된 경로)
+    - 미구현 파일 제거 (seed-db.js, rateLimit.ts, chat/rating/notification 관련)
+    - 미구현 예정 디렉터리 표기 (repositories/, websocket/)
+    - infra/ 에서 nginx/, postgres/ 제거 (redis/ 만 존재)
+    - src/types/ 디렉터리 추가 (TypeScript 마이그레이션 시 신설)
+    - docker-compose.prod.yml 제거 (미생성)
+
+  2. package.json 버전 1.2.1 → 1.3.0
+    - feature/pods 완료 후 main 반영 → minor +1, patch 초기화
+
+버전
+----
+  1.2.1 → 1.3.0 (main release: pods API 완료)
+
 

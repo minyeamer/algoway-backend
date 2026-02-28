@@ -130,7 +130,7 @@ git checkout dev
 ### testing/
 
 - 각 API 도메인별 테스팅 가이드 작성 필수
-  - `docs/testing/01-auth.md`, `02-users.md`, `03-pods.md` ... (순번-도메인 형식)
+  - `docs/tests/01-auth.md`, `02-users.md`, `03-pods.md` ... (순번-도메인 형식)
 - lookflex/docs/testing.md 형식 참고
 
 ### 기타
