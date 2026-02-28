@@ -352,3 +352,70 @@ export const updatePodStatusValidation: ValidationMiddleware[] = [
     .withMessage('올바르지 않은 상태값입니다.'),
   validate,
 ];
+
+// ─── 채팅 Validation ──────────────────────────────────────────────────────────
+
+/**
+ * 메시지 전송 Validation
+ */
+export const sendMessageValidation: ValidationMiddleware[] = [
+  body('messageType')
+    .isIn(['text', 'location'])
+    .withMessage('메시지 타입은 text 또는 location이어야 합니다.'),
+  body('content')
+    .if(body('messageType').equals('text'))
+    .notEmpty()
+    .withMessage('텍스트 메시지는 content가 필수입니다.')
+    .isLength({ max: 1000 })
+    .withMessage('메시지는 1000자 이내여야 합니다.'),
+  body('location')
+    .if(body('messageType').equals('location'))
+    .notEmpty()
+    .withMessage('위치 메시지는 location이 필수입니다.'),
+  body('location.latitude')
+    .if(body('messageType').equals('location'))
+    .isFloat({ min: -90, max: 90 })
+    .withMessage('위도는 -90~90 사이의 수여야 합니다.')
+    .toFloat(),
+  body('location.longitude')
+    .if(body('messageType').equals('location'))
+    .isFloat({ min: -180, max: 180 })
+    .withMessage('경도는 -180~180 사이의 수여야 합니다.')
+    .toFloat(),
+  body('location.address')
+    .if(body('messageType').equals('location'))
+    .notEmpty()
+    .withMessage('주소는 필수입니다.'),
+  validate,
+];
+
+/**
+ * 준비 상태 업데이트 Validation
+ */
+export const updateReadyStatusValidation: ValidationMiddleware[] = [
+  body('isReady')
+    .isBoolean()
+    .withMessage('isReady는 boolean이어야 합니다.'),
+  validate,
+];
+
+/**
+ * 메시지 목록 조회 Validation
+ */
+export const getMessagesValidation: ValidationMiddleware[] = [
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('페이지는 1 이상의 정수여야 합니다.')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('limit은 1~100 사이의 정수여야 합니다.')
+    .toInt(),
+  query('before')
+    .optional()
+    .isUUID()
+    .withMessage('before는 올바른 UUID 형식이어야 합니다.'),
+  validate,
+];
