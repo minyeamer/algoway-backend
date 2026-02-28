@@ -994,3 +994,155 @@ Supabase 배포 방법
     - server.js 실행
     - Health check 확인
     - PostgreSQL, Redis 연결 확인
+
+================================================================================
+[2026-02-28] 데이터베이스 케이스 매핑 레이어 추가
+================================================================================
+
+배경
+----
+Supabase에 init-db.sql을 실행하고 나니, 데이터베이스는 snake_case(user_id,
+created_at)를 사용하지만 API 문서와 JavaScript 코드는 camelCase(userId,
+createdAt)를 사용하여 필드명이 일치하지 않는 문제가 발생했다.
+
+Node.js + PostgreSQL 환경에서의 네이밍 규칙은 다음과 같다:
+  - PostgreSQL (데이터베이스): snake_case (표준)
+  - JavaScript (코드/API): camelCase (표준)
+  - 해결책: 자동 변환 레이어 추가
+
+이는 Node.js 생태계의 베스트 프랙티스이며, TypeORM, Prisma, Sequelize 등
+모든 주요 ORM이 이 방식을 채택하고 있다.
+
+브랜치 전략
+----------
+  - feature/database-case-mapping (dev에서 분기)
+
+작업 내용
+---------
+  1. 케이스 변환 유틸리티 추가 (src/utils/caseConverter.js)
+    - toCamelCase(str): snake_case → camelCase (예: user_id → userId)
+    - toSnakeCase(str): camelCase → snake_case (예: userId → user_id)
+    - keysToCamel(obj): 객체의 모든 키를 camelCase로 변환 (재귀적)
+    - keysToSnake(obj): 객체의 모든 키를 snake_case로 변환 (재귀적)
+
+  2. database.js 개선
+    - query() 함수: 쿼리 결과를 자동으로 camelCase로 변환
+    - transaction() 함수: 트랜잭션 내 모든 쿼리 결과 자동 변환
+    - keysToCamel, keysToSnake export: Repository에서 직접 사용 가능
+
+네이밍 규칙 정리
+----------------
+  PostgreSQL (snake_case):
+    - user_id, password_hash, created_at, updated_at
+    - departure_location, arrival_location
+    - is_verified, is_ready, is_read
+    - max_participants, current_participants
+    - reviewer_id, reviewee_id
+
+  JavaScript (camelCase):
+    - userId, passwordHash, createdAt, updatedAt
+    - departureLocation, arrivalLocation
+    - isVerified, isReady, isRead
+    - maxParticipants, currentParticipants
+    - reviewerId, revieweeId
+
+  변환 예시:
+    DB 결과: { user_id: 'uuid', created_at: '2026-02-28' }
+    ↓ keysToCamel()
+    JS 객체: { userId: 'uuid', createdAt: '2026-02-28' }
+
+사용 예시
+---------
+  1. 일반 쿼리 (자동 변환)
+    ```javascript
+    const { query } = require('../config/database');
+    
+    // SQL은 snake_case 사용
+    const result = await query(
+      'SELECT user_id, email, created_at FROM users WHERE email = $1',
+      ['user@example.com']
+    );
+    
+    // 결과는 자동으로 camelCase로 변환됨
+    console.log(result.rows[0].userId);      // ✅ 'uuid'
+    console.log(result.rows[0].createdAt);   // ✅ '2026-02-28'
+    ```
+
+  2. 트랜잭션 (자동 변환)
+    ```javascript
+    const { transaction } = require('../config/database');
+    
+    const result = await transaction(async (client) => {
+      const user = await client.query(
+        'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING *',
+        ['user@example.com', 'hash']
+      );
+      
+      // 결과 자동 변환
+      return user.rows[0];  // { userId: 'uuid', email: '...', passwordHash: 'hash' }
+    });
+    ```
+
+  3. INSERT/UPDATE 시 수동 변환 (필요 시)
+    ```javascript
+    const { query, keysToSnake } = require('../config/database');
+    
+    const userData = {
+      email: 'user@example.com',
+      passwordHash: 'hash',
+      userType: 'student'
+    };
+    
+    // camelCase → snake_case 변환
+    const dbData = keysToSnake(userData);
+    // { email: '...', password_hash: 'hash', user_type: 'student' }
+    
+    // 또는 직접 snake_case로 작성 (권장)
+    await query(
+      'INSERT INTO users (email, password_hash, user_type) VALUES ($1, $2, $3)',
+      [userData.email, userData.passwordHash, userData.userType]
+    );
+    ```
+
+설계 결정 사항
+--------------
+  - DB 스키마는 snake_case 유지:
+    * PostgreSQL 표준 컨벤션
+    * 인덱스, 트리거 등 DB 레벨 로직과 일관성
+
+  - API 응답은 camelCase 사용:
+    * JavaScript 표준 컨벤션
+    * api.md에 명시된 응답 형식 준수
+
+  - 자동 변환 레이어:
+    * 쿼리 결과는 자동으로 camelCase 변환
+    * INSERT/UPDATE는 SQL에서 직접 snake_case 사용 (명시적)
+    * 성능 오버헤드 최소 (단순 문자열 변환)
+
+  - Repository 패턴 적용:
+    * Service → Repository: camelCase 객체 전달
+    * Repository → DB: SQL에서 snake_case 사용
+    * DB → Repository: 자동 camelCase 변환
+    * Repository → Service: camelCase 객체 반환
+
+장점
+----
+  1. 코드 일관성: JavaScript는 camelCase, SQL은 snake_case
+  2. 타입 안정성: TypeScript 도입 시 인터페이스와 DB 컬럼 자동 매핑
+  3. 유지보수성: 컨벤션 명확, 혼란 최소화
+  4. 확장성: ORM 도입 시에도 동일한 패턴 사용
+
+다음 단계 (예정)
+----------------
+  1. 커밋 및 머지
+    - feature/database-case-mapping → dev 머지
+
+  2. 인증 API 구현 (feature/auth)
+    - algoway-old 코드 이식 및 케이스 변환 적용
+    - authService: camelCase 사용
+    - SQL 쿼리: snake_case 사용
+    - API 응답: camelCase (자동 변환)
+
+  3. Repository 패턴 구현
+    - userRepository.js: 사용자 CRUD (camelCase ↔ snake_case 처리)
+    - 재사용 가능한 쿼리 메서드 구현
