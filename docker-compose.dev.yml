@@ -10,6 +10,7 @@ services:
       - ./server.ts:/app/server.ts
       - ./tsconfig.json:/app/tsconfig.json
       - ./package.json:/app/package.json
+      - ./public:/app/public              # 테스트 UI 등 정적 파일
       - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
     environment:
       NODE_ENV: development

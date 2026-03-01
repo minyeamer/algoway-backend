@@ -111,7 +111,7 @@ export const globalErrorHandler = (
  * Async 핸들러 래퍼 (try-catch 자동화)
  */
 export const asyncHandler = (
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown> | void
 ): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
