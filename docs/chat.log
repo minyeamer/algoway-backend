@@ -2164,3 +2164,168 @@ WebSocket은 실시간 메시지 전달, REST API는 채팅방 목록·메시지
 버전
 ----
   1.3.1 → 1.4.0 (feat: Chat REST API)
+
+================================================================================
+[2026-03-01] Chat 라우트 TypeScript 타입 오류 수정
+================================================================================
+
+문제 상황
+---------
+chat.ts 라우터에서 VS Code가 모든 핸들러에 TS2769 오류 표시:
+  "No overload matches this call. Argument of type
+  '(req: AuthenticatedRequest, ...) => Promise<void>'
+  is not assignable to parameter of type 'Application<...>'"
+
+TS 서버 재시작 후에도 빨간줄 유지. pods.ts는 간헐적으로만 발생.
+
+원인 분석
+---------
+  tsconfig.json의 strict: true → strictFunctionTypes 활성화 상태.
+  함수 파라미터는 반변(contravariant) 검사 — 즉 AuthenticatedRequest를
+  받는 핸들러를 Request를 받는 RequestHandler 자리에 넣으려면
+  Request가 AuthenticatedRequest에 할당 가능해야 함.
+
+  그런데 express.d.ts에서 Request.user는 optional(?),
+  AuthenticatedRequest.user는 required.
+  → undefined를 허용하지 않는 타입에 할당 불가 → 타입 에러.
+
+수정 내용
+---------
+  1. src/controllers/chatController.ts
+    - 모든 핸들러 파라미터: AuthenticatedRequest → Request
+    - req.user! (non-null assertion)으로 접근 — auth 미들웨어가 보장
+
+  2. src/middlewares/errorHandler.ts
+    - asyncHandler 시그니처: Promise<unknown> → Promise<unknown> | void
+    - users.ts의 asyncHandler + as RequestHandler 패턴과의 호환성 개선
+
+  3. src/routes/chat.ts
+    - as any, asyncHandler 래핑 등 우회 시도 제거 — 깔끔한 원본 유지
+
+================================================================================
+[2026-03-01] WebSocket 실시간 채팅 구현 (Socket.io)
+================================================================================
+
+배경
+----
+Chat REST API(v1.4.0) 완료 후 실시간 메시지 전송을 위한 Socket.io WebSocket
+레이어를 추가한다. REST API는 메시지 히스토리 조회용으로 유지하고,
+실시간 전송/수신은 WebSocket으로 처리하는 이중 구조를 채택한다.
+
+작업 내용
+---------
+  - server.ts: Express app → http.createServer → initSocketServer 순으로 변경
+    (app.listen → httpServer.listen)
+  - src/websocket/index.ts: Socket.io 서버 초기화 + JWT 인증 미들웨어
+    - socket.handshake.auth.token에서 JWT 추출 → userId, nickname 주입
+    - AuthenticatedSocket 인터페이스 (Socket + userId + nickname)
+  - src/websocket/chatHandler.ts: 7개 이벤트 핸들러 등록
+
+구현된 이벤트
+------------
+  클라이언트 → 서버 (emit)
+    chat:join          채팅방 입장 (Socket.io Room join)
+    chat:leave         채팅방 퇴장 (Room leave, 팟 탈퇴 아님)
+    chat:message       메시지 전송 (DB 저장 + Room 브로드캐스트)
+    chat:typing        타이핑 시작 알림
+    chat:stop_typing   타이핑 중지 알림
+    chat:ready         준비 상태 변경 (DB 업데이트)
+
+  서버 → 클라이언트 (broadcast)
+    chat:joined              입장 완료 확인
+    chat:left                퇴장 완료 확인
+    chat:new_message         신규 메시지 (Room 전체)
+    chat:user_joined         다른 참여자 입장 알림
+    chat:user_left           다른 참여자 퇴장 알림
+    chat:user_disconnected   연결 끊김 알림
+    chat:user_typing         타이핑 중 알림 (본인 제외)
+    chat:user_stop_typing    타이핑 중지 알림
+    chat:ready_update        준비 상태 변경 (participants 전체 포함)
+    error:chat               에러 응답 { event, code, message }
+
+설계 결정 사항
+--------------
+  - chatService 재사용: WebSocket 핸들러가 REST API와 동일한 서비스 레이어를
+    호출 → 비즈니스 로직 중복 없음
+  - chat:message는 io.to(room).emit으로 보낸 사람 포함 전체에 브로드캐스트
+    (자기 자신도 수신하여 UI 즉시 반영)
+  - disconnecting 이벤트로 연결 해제 시 참여 중인 모든 room에 알림
+  - Redis Adapter는 현재 단일 인스턴스이므로 추후 도입 예정
+
+버전
+----
+  1.4.0 → 1.4.1 (feat: WebSocket real-time chat + test UI)
+
+================================================================================
+[2026-03-01] 테스트 채팅 UI 구현 (public/test-chat.html)
+================================================================================
+
+배경
+----
+WebSocket 기능을 브라우저에서 직접 테스트할 수 있는 정적 HTML 페이지를
+개발 환경 전용으로 제공한다. 별도 클라이언트 앱 없이 두 탭을 열어
+두 사용자 간 실시간 채팅을 검증할 수 있다.
+
+제공 경로
+---------
+  GET /test/chat (NODE_ENV !== 'production' 일 때만 활성화)
+  → src/app.ts에서 sendFile로 서빙
+
+주요 기능
+---------
+  - 이메일/비밀번호 로그인 오버레이 (POST /v1/auth/login)
+  - 로그인 후 헤더에 닉네임 + userId 표시
+  - 로그아웃 (소켓 해제 + 상태 초기화)
+  - 채팅방 목록 드롭다운 (GET /v1/chat/rooms 자동 로드)
+  - WebSocket Connect/Disconnect 버튼
+  - 채팅방 Join/Leave + 기존 메시지 히스토리 로드
+  - 실시간 메시지 송수신 (내/상대 말풍선 구분)
+  - 타이핑 인디케이터
+  - 위치 전송 (Geolocation API)
+  - 준비 상태 토글 스위치
+  - 참여자 목록 + 준비 배지
+  - 우측 이벤트 로그 패널 (send/recv/error/info 색상 구분)
+
+시행착오 및 수정 이력
+--------------------
+  1. ENOENT 오류 (docker-compose.dev.yml 볼륨 누락)
+    - 증상: /test/chat 접속 시 ENOENT: no such file or directory '/app/public/test-chat.html'
+    - 원인: docker-compose.dev.yml volumes에 ./public:/app/public 마운트 누락
+    - 수정: ./public:/app/public 볼륨 항목 추가
+
+  2. CSP(Content Security Policy) 인라인 스크립트 차단
+    - 증상: 버튼 클릭 무반응, helmet 기본 CSP가 script-src 'self'만 허용
+    - 원인: <script> 블록이 인라인으로 취급되어 차단
+    - 1차 시도: onclick 등 인라인 핸들러 → addEventListener 패턴으로 전환
+      (실패 — 스크립트 블록 자체가 차단됨)
+    - 최종 수정: /test/chat 라우트에만 CSP 헤더 오버라이드
+        res.set('Content-Security-Policy', "script-src 'self' 'unsafe-inline'; object-src 'none'")
+
+  3. 소켓 중복 연결로 인한 메시지 2회 수신
+    - 증상: 메시지 전송 시 채팅창에 동일 메시지 2개 표시
+    - 원인: Connect 버튼 중복 클릭 또는 소켓 자동 재연결로 두 개의 소켓이
+      동시에 chat:new_message를 수신
+    - 1차 수정: isConnecting 플래그로 중복 connect() 호출 방지
+    - 최종 수정: connect() 진입 시 기존 소켓 removeAllListeners() + disconnect()
+      후 재생성 + reconnection: false 옵션 추가
+
+  4. 한글 IME 조합으로 인한 메시지 2회 전송
+    - 증상: "ㅎㅇ" 입력 후 Enter 시 "ㅇ" 단독 메시지가 추가로 발송됨
+    - 원인: 한글 IME 마지막 자모 확정 시 isComposing=true인 keydown Enter가
+      먼저 발생 → sendMessage() 호출 → 실제 Enter에 의해 한 번 더 호출
+    - 수정: handleKeyDown에 !e.isComposing 조건 추가
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing)
+
+테스트 결과
+-----------
+  두 계정(Alice, ts_patched)으로 동시 접속하여 다음 항목 검증 완료:
+  - 로그인/로그아웃
+  - 채팅방 목록 드롭다운 자동 로드
+  - 실시간 메시지 송수신 (방향 구분 정확)
+  - 입장/퇴장 시스템 메시지
+  - 타이핑 인디케이터
+  - 위치 전송
+  - 준비 상태 토글 및 참여자 패널 업데이트
+  - 이벤트 로그 패널 정상 출력
+  - 한글 IME 입력 후 단일 전송 확인
+

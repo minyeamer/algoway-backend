@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Algoway Chat Test</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #1c2128;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ─── 헤더 ─── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    header h1 { font-size: 15px; font-weight: 600; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+    .status-dot.connected { background: var(--green); }
+    .status-text { font-size: 12px; color: var(--muted); flex-shrink: 0; }
+    .header-user {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .header-userid { font-family: monospace; font-size: 11px; color: var(--muted); }
+
+    /* ─── 로그인 오버레이 ─── */
+    #loginOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.78);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      width: 360px;
+    }
+    .login-box h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .login-box p  { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; color: var(--muted);
+      letter-spacing: 0.5px; margin-bottom: 5px;
+    }
+    .form-group input {
+      width: 100%; padding: 8px 12px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 13px;
+    }
+    .form-group input:focus { outline: none; border-color: var(--accent); }
+    .login-error { font-size: 12px; color: var(--red); margin-bottom: 12px; min-height: 16px; }
+
+    /* ─── 공통 버튼 ─── */
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--border); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.primary { background: #238636; border-color: #2ea043; }
+    .btn.primary:hover { background: #2ea043; }
+    .btn.danger { background: #da3633; border-color: #f85149; }
+    .btn.danger:hover { background: #f85149; }
+    .btn.full { width: 100%; padding: 9px; font-size: 13px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 8px; }
+
+    /* ─── 레이아웃 ─── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ─── 사이드바 ─── */
+    .sidebar {
+      width: 300px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .panel { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .panel-title {
+      display: block; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; color: var(--muted);
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .panel input[type="text"],
+    .panel select {
+      width: 100%; padding: 6px 10px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 13px;
+    }
+    .panel select { font-family: inherit; cursor: pointer; margin-bottom: 6px; }
+    .panel input:focus, .panel select:focus { outline: none; border-color: var(--accent); }
+    .panel select option { background: var(--surface2); }
+
+    .user-info-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+    .user-info-box .lbl { color: var(--muted); }
+    .user-info-box .val { color: var(--text); font-family: 'SF Mono','Fira Code',monospace; }
+
+    .participants-list { padding: 10px 14px; flex: 1; overflow-y: auto; }
+    .participants-title {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .participant { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+    .ready-badge {
+      font-size: 10px; padding: 1px 6px; border-radius: 10px;
+      background: var(--border); color: var(--muted);
+    }
+    .ready-badge.ready { background: #238636; color: #e6edf3; }
+    .ready-toggle { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .toggle-switch { position: relative; width: 40px; height: 22px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: var(--border); border-radius: 11px; transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      height: 16px; width: 16px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%; transition: 0.2s;
+    }
+    .toggle-switch input:checked + .toggle-slider { background: var(--green); }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* ─── 채팅 영역 ─── */
+    .chat-area { flex: 1; display: flex; flex-direction: column; }
+    .chat-room-bar {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 8px 20px; font-size: 13px; color: var(--muted);
+      min-height: 36px; display: flex; align-items: center;
+    }
+    .messages {
+      flex: 1; overflow-y: auto; padding: 14px 20px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .message {
+      max-width: 70%; padding: 8px 12px; border-radius: 12px;
+      font-size: 13px; line-height: 1.4; word-break: break-word;
+    }
+    .message.mine  { align-self: flex-end; background: #1f6feb; color: white; border-bottom-right-radius: 4px; }
+    .message.other { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .message.system {
+      align-self: center; max-width: 90%; background: transparent;
+      border: 1px dashed var(--border); color: var(--muted);
+      font-size: 11px; text-align: center;
+    }
+    .msg-sender { font-size: 11px; font-weight: 600; color: var(--accent); margin-bottom: 2px; }
+    .message.mine .msg-sender { color: rgba(255,255,255,0.7); }
+    .msg-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+    .message.mine .msg-meta { color: rgba(255,255,255,0.5); }
+    .location-tag {
+      display: inline-block; padding: 2px 6px;
+      background: rgba(88,166,255,0.15); border-radius: 4px;
+      font-size: 11px; color: var(--accent); margin-top: 4px;
+    }
+    .typing-indicator { padding: 3px 20px; font-size: 11px; color: var(--muted); font-style: italic; min-height: 18px; }
+    .input-area {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 10px 20px; display: flex; gap: 8px;
+    }
+    .input-area input {
+      flex: 1; padding: 8px 12px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-size: 13px;
+    }
+    .input-area input:focus { outline: none; border-color: var(--accent); }
+
+    /* ─── 이벤트 로그 ─── */
+    .log-area {
+      width: 340px; background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .log-header {
+      padding: 8px 14px; border-bottom: 1px solid var(--border);
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      color: var(--muted); display: flex; justify-content: space-between; align-items: center;
+    }
+    .log-entries {
+      flex: 1; overflow-y: auto; padding: 6px;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px;
+    }
+    .log-entry { padding: 2px 6px; border-radius: 3px; margin-bottom: 2px; white-space: pre-wrap; word-break: break-all; line-height: 1.5; }
+    .log-entry.send  { color: var(--green); }
+    .log-entry.recv  { color: var(--accent); }
+    .log-entry.error { color: var(--red); }
+    .log-entry.info  { color: var(--yellow); }
+    .all-ready-notice { margin-top: 8px; padding: 6px 10px; background: #238636; border-radius: 6px; font-size: 12px; text-align: center; }
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--red);
+    }
+
+    .status-dot.connected {
+      background: var(--green);
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ─── 사이드바 ─── */
+    .sidebar {
+      width: 320px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .panel {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .panel input[type="text"],
+    .panel input[type="password"] {
+      width: 100%;
+      padding: 6px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .panel input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--border);
+    }
+
+    .btn.primary {
+      background: #238636;
+      border-color: #2ea043;
+    }
+
+    .btn.primary:hover {
+      background: #2ea043;
+    }
+
+    .btn.danger {
+      background: #da3633;
+      border-color: #f85149;
+    }
+
+    .btn.danger:hover {
+      background: #f85149;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .participants-list {
+      padding: 8px 16px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .participants-list h3 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .participant {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .participant .ready-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--border);
+      color: var(--muted);
+    }
+
+    .participant .ready-badge.ready {
+      background: #238636;
+      color: #e6edf3;
+    }
+
+    /* ─── 채팅 영역 ─── */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-room-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .message {
+      max-width: 70%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .message.mine {
+      align-self: flex-end;
+      background: #1f6feb;
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.other {
+      align-self: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message .sender {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+
+    .message.mine .sender {
+      color: rgba(255,255,255,0.7);
+    }
+
+    .message .meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .message.mine .meta {
+      color: rgba(255,255,255,0.5);
+    }
+
+    .message.system {
+      align-self: center;
+      max-width: 90%;
+      background: transparent;
+      border: 1px dashed var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    .message .location-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      background: rgba(88, 166, 255, 0.15);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--accent);
+      margin-top: 4px;
+    }
+
+    .typing-indicator {
+      padding: 4px 20px;
+      font-size: 11px;
+      color: var(--muted);
+      font-style: italic;
+      min-height: 20px;
+    }
+
+    .input-area {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-area input {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .input-area input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* ─── 이벤트 로그 ─── */
+    .log-area {
+      width: 360px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .log-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .log-entries {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+    }
+
+    .log-entry {
+      padding: 3px 8px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-entry.send {
+      color: var(--green);
+    }
+
+    .log-entry.recv {
+      color: var(--accent);
+    }
+
+    .log-entry.error {
+      color: var(--red);
+    }
+
+    .log-entry.info {
+      color: var(--yellow);
+    }
+
+    .ready-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--border);
+      border-radius: 11px;
+      transition: 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--green);
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- 로그인 오버레이 -->
+  <div id="loginOverlay">
+    <div class="login-box">
+      <h2>Algoway Chat Test</h2>
+      <p>테스트 계정으로 로그인하세요</p>
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="loginEmail" placeholder="user@university.ac.kr" />
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="loginPassword" placeholder="비밀번호 입력" />
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="btn primary full" id="loginBtn">로그인</button>
+    </div>
+  </div>
+
+  <!-- 헤더 -->
+  <header>
+    <h1>Algoway Chat Test</h1>
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Disconnected</span>
+    <div class="header-user" id="headerUser" style="display:none">
+      <strong id="headerNickname"></strong>
+      <span style="color:var(--border)">|</span>
+      <span class="header-userid" id="headerUserId"></span>
+      <button class="btn danger" id="logoutBtn" style="padding:4px 10px">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- 사이드바 -->
+    <div class="sidebar">
+
+      <!-- 내 정보 -->
+      <div class="panel" id="userInfoPanel" style="display:none">
+        <span class="panel-title">내 정보</span>
+        <div class="user-info-box" id="userInfoBox"></div>
+      </div>
+
+      <!-- 소켓 연결 -->
+      <div class="panel">
+        <span class="panel-title">WebSocket</span>
+        <button class="btn primary" id="connectBtn" style="width:100%">Connect</button>
+      </div>
+
+      <!-- 채팅방 선택 -->
+      <div class="panel">
+        <span class="panel-title">채팅방</span>
+        <select id="roomSelect" style="display:none">
+          <option value="">— 채팅방 선택 —</option>
+        </select>
+        <input type="text" id="roomInput" placeholder="Chat Room UUID" />
+        <div class="btn-row">
+          <button class="btn" id="joinBtn">Join</button>
+          <button class="btn" id="leaveBtn">Leave</button>
+          <button class="btn" id="refreshRoomsBtn" title="채팅방 목록 새로고침" style="padding:6px 8px">↻</button>
+        </div>
+      </div>
+
+      <!-- 준비 상태 -->
+      <div class="panel">
+        <span class="panel-title">Ready Status</span>
+        <div class="ready-toggle">
+          <label class="toggle-switch">
+            <input type="checkbox" id="readyToggle" />
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="readyLabel" style="font-size:13px; color:var(--muted)">준비 안됨</span>
+        </div>
+      </div>
+
+      <!-- 참여자 -->
+      <div class="participants-list">
+        <div class="participants-title">Participants</div>
+        <div id="participantsList"></div>
+      </div>
+    </div>
+
+    <!-- 채팅 영역 -->
+    <div class="chat-area">
+      <div class="chat-room-bar" id="roomBar">채팅방을 선택하세요</div>
+      <div class="messages" id="messagesArea"></div>
+      <div class="typing-indicator" id="typingIndicator"></div>
+      <div class="input-area">
+        <input type="text" id="messageInput" placeholder="메시지를 입력하세요…" disabled />
+        <button class="btn primary" id="sendBtn" disabled>Send</button>
+        <button class="btn" id="locBtn" title="위치 전송" disabled>📍</button>
+      </div>
+    </div>
+
+    <!-- 이벤트 로그 -->
+    <div class="log-area">
+      <div class="log-header">
+        <span>Event Log</span>
+        <button class="btn" id="clearLogBtn" style="padding:2px 8px; font-size:10px">Clear</button>
+      </div>
+      <div class="log-entries" id="logEntries"></div>
+    </div>
+  </div>
+
+  <script>
+    // ─── 상태 ───────────────────────────────────────────────────────
+    let socket       = null;
+    let isConnecting = false;
+    let currentRoom  = null;
+    let myUserId     = null;
+    let accessToken  = null;
+    let typingTimeout = null;
+    let isTyping     = false;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('loginBtn').addEventListener('click', doLogin);
+      document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+      document.getElementById('logoutBtn').addEventListener('click', doLogout);
+      document.getElementById('connectBtn').addEventListener('click', toggleConnection);
+      document.getElementById('joinBtn').addEventListener('click', joinRoom);
+      document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
+      document.getElementById('refreshRoomsBtn').addEventListener('click', loadRooms);
+      document.getElementById('readyToggle').addEventListener('change', toggleReady);
+      document.getElementById('sendBtn').addEventListener('click', sendMessage);
+      document.getElementById('locBtn').addEventListener('click', sendLocation);
+      document.getElementById('clearLogBtn').addEventListener('click', clearLog);
+      document.getElementById('messageInput').addEventListener('keydown', handleKeyDown);
+      document.getElementById('messageInput').addEventListener('input', handleInput);
+      document.getElementById('roomSelect').addEventListener('change', function () {
+        if (this.value) document.getElementById('roomInput').value = this.value;
+      });
+    });
+
+    // ─── 로그인 ──────────────────────────────────────────────────────
+    async function doLogin() {
+      const email    = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errEl    = document.getElementById('loginError');
+      if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력하세요.'; return; }
+
+      const loginBtn = document.getElementById('loginBtn');
+      loginBtn.disabled = true;
+      loginBtn.textContent = '로그인 중…';
+      errEl.textContent = '';
+
+      try {
+        const resp = await fetch('/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await resp.json();
+        if (!data.success) { errEl.textContent = data.error?.message || '로그인 실패'; return; }
+
+        accessToken = data.data.accessToken;
+        const user  = data.data.user;
+        myUserId    = user.userId;
+
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('headerNickname').textContent  = user.nickname;
+        document.getElementById('headerUserId').textContent    = user.userId;
+        document.getElementById('headerUser').style.display    = 'flex';
+        document.getElementById('userInfoPanel').style.display = 'block';
+        document.getElementById('userInfoBox').innerHTML = `
+          <div><span class="lbl">닉네임: </span><span class="val">${escapeHtml(user.nickname)}</span></div>
+          <div><span class="lbl">이메일: </span><span class="val">${escapeHtml(user.email)}</span></div>
+          <div><span class="lbl">userId: </span><span class="val" style="font-size:10px">${user.userId}</span></div>
+          <div><span class="lbl">유형: </span><span class="val">${user.userType} · ${user.verificationBadge || '미인증'}</span></div>
+        `;
+        addLog('info', `로그인 성공: ${user.nickname} (${user.email})`);
+        loadRooms();
+      } catch (e) {
+        errEl.textContent = '네트워크 오류: ' + e.message;
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.textContent = '로그인';
+      }
+    }
+
+    // ─── 로그아웃 ─────────────────────────────────────────────────────
+    function doLogout() {
+      if (socket) { socket.disconnect(); socket = null; }
+      accessToken = null; myUserId = null; currentRoom = null;
+      document.getElementById('headerUser').style.display    = 'none';
+      document.getElementById('userInfoPanel').style.display = 'none';
+      document.getElementById('messagesArea').innerHTML      = '';
+      document.getElementById('participantsList').innerHTML  = '';
+      document.getElementById('roomBar').textContent         = '채팅방을 선택하세요';
+      document.getElementById('roomInput').value             = '';
+      document.getElementById('roomSelect').innerHTML        = '<option value="">— 채팅방 선택 —</option>';
+      document.getElementById('roomSelect').style.display    = 'none';
+      document.getElementById('readyToggle').checked         = false;
+      document.getElementById('readyLabel').textContent      = '준비 안됨';
+      setConnected(false); enableChat(false);
+      document.getElementById('loginEmail').value            = '';
+      document.getElementById('loginPassword').value         = '';
+      document.getElementById('loginError').textContent      = '';
+      document.getElementById('loginOverlay').style.display  = 'flex';
+      addLog('info', '로그아웃');
+    }
+
+    // ─── 채팅방 목록 ──────────────────────────────────────────────────
+    async function loadRooms() {
+      if (!accessToken) return;
+      try {
+        const resp = await fetch('/v1/chat/rooms', { headers: { 'Authorization': `Bearer ${accessToken}` } });
+        const data = await resp.json();
+        const sel  = document.getElementById('roomSelect');
+        if (!data.success || !data.data?.items?.length) {
+          sel.style.display = 'none';
+          addLog('info', '참여 중인 채팅방 없음');
+          return;
+        }
+        sel.innerHTML = '<option value="">— 채팅방 선택 —</option>';
+        data.data.items.forEach(room => {
+          const opt = document.createElement('option');
+          opt.value = room.chatRoomId;
+          const dep    = room.pod?.departurePlace || '?';
+          const arr    = room.pod?.arrivalPlace   || '?';
+          const status = room.pod?.status ? ` [${room.pod.status}]` : '';
+          opt.textContent = `${dep} → ${arr}${status}`;
+          sel.appendChild(opt);
+        });
+        sel.style.display = 'block';
+        addLog('info', `채팅방 ${data.data.items.length}개 로드됨`);
+      } catch(e) { addLog('error', `채팅방 목록 오류: ${e.message}`); }
+    }
+
+    // ─── 로그 ─────────────────────────────────────────────────────────────────
+
+    function addLog(type, text) {
+      const el = document.getElementById('logEntries');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+      entry.textContent = `[${time}] ${text}`;
+      el.appendChild(entry);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('logEntries').innerHTML = '';
+    }
+
+    // ─── 연결 ─────────────────────────────────────────────────────────────────
+
+    function toggleConnection() {
+      if (socket) {
+        if (socket.connected) {
+          socket.disconnect();
+          return;
+        }
+        // 이미 연결 시도 중이면 중복 생성 방지
+        if (isConnecting) {
+          return;
+        }
+      }
+      connect();
+    }
+
+    function connect() {
+      if (!accessToken) {
+        addLog('error', '먼저 로그인하세요');
+        return;
+      }
+
+      // 기존 소켓이 남아 있으면 리스너 제거 후 완전히 해제
+      if (socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+        socket = null;
+      }
+
+      addLog('info', 'Connecting...');
+
+      isConnecting = true;
+      socket = io(window.location.origin, {
+        auth: { token: accessToken },
+        reconnection: false,
+      });
+
+      socket.on('connect', () => {
+        isConnecting = false;
+        setConnected(true);
+        addLog('info', `Connected: ${socket.id}`);
+      });
+
+      socket.on('disconnect', (reason) => {
+        isConnecting = false;
+        setConnected(false);
+        addLog('info', `Disconnected: ${reason}`);
+      });
+
+      socket.on('connect_error', (err) => {
+        isConnecting = false;
+        setConnected(false);
+        addLog('error', `Connection error: ${err.message}`);
+      });
+
+      // ─── 채팅 이벤트 수신 ──────────────────────────────────────────────────
+
+      socket.on('chat:joined', (data) => {
+        addLog('recv', `chat:joined → ${JSON.stringify(data)}`);
+        currentRoom = data.chatRoomId;
+        document.getElementById('roomBar').textContent = `Room: ${data.chatRoomId.substring(0, 8)}…`;
+        enableChat(true);
+      });
+
+      socket.on('chat:left', (data) => {
+        addLog('recv', `chat:left → ${JSON.stringify(data)}`);
+        currentRoom = null;
+        document.getElementById('roomBar').textContent = '채팅방을 선택하세요';
+        enableChat(false);
+      });
+
+      socket.on('chat:new_message', (msg) => {
+        addLog('recv', `chat:new_message → ${msg.messageType}: ${msg.content || '📍 위치'}`);
+        appendMessage(msg);
+      });
+
+      socket.on('chat:user_joined', (data) => {
+        addLog('recv', `chat:user_joined → ${data.nickname}`);
+        appendSystemMessage(`${data.nickname}님이 입장했습니다.`);
+      });
+
+      socket.on('chat:user_left', (data) => {
+        addLog('recv', `chat:user_left → ${data.nickname}`);
+        appendSystemMessage(`${data.nickname}님이 퇴장했습니다.`);
+      });
+
+      socket.on('chat:user_disconnected', (data) => {
+        addLog('recv', `chat:user_disconnected → ${data.nickname}`);
+        appendSystemMessage(`${data.nickname}님의 연결이 끊어졌습니다.`);
+      });
+
+      socket.on('chat:user_typing', (data) => {
+        document.getElementById('typingIndicator').textContent = `${data.nickname}님이 입력 중…`;
+      });
+
+      socket.on('chat:user_stop_typing', (data) => {
+        document.getElementById('typingIndicator').textContent = '';
+      });
+
+      socket.on('chat:ready_update', (data) => {
+        addLog('recv', `chat:ready_update → allReady: ${data.allReady}`);
+        updateParticipants(data.participants, data.allReady);
+      });
+
+      socket.on('error:chat', (err) => {
+        addLog('error', `error:chat [${err.event}] ${err.code}: ${err.message}`);
+      });
+    }
+
+    function setConnected(connected) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      const btn = document.getElementById('connectBtn');
+
+      dot.className = `status-dot ${connected ? 'connected' : ''}`;
+      text.textContent = connected ? 'Connected' : 'Disconnected';
+      btn.textContent = connected ? 'Disconnect' : 'Connect';
+      btn.className = connected ? 'btn danger' : 'btn primary';
+    }
+
+    function enableChat(enabled) {
+      document.getElementById('messageInput').disabled = !enabled;
+      document.getElementById('sendBtn').disabled = !enabled;
+      document.getElementById('locBtn').disabled = !enabled;
+    }
+
+    // ─── 채팅방 ───────────────────────────────────────────────────────────────
+
+    function joinRoom() {
+      const roomId = document.getElementById('roomInput').value.trim();
+      if (!roomId || !socket || !socket.connected) {
+        addLog('error', 'Room ID를 입력하고 연결하세요');
+        return;
+      }
+
+      addLog('send', `chat:join → { chatRoomId: "${roomId.substring(0, 8)}…" }`);
+      socket.emit('chat:join', { chatRoomId: roomId });
+      document.getElementById('messagesArea').innerHTML = '';
+
+      // REST API로 기존 메시지 로드
+      loadMessages(roomId);
+    }
+
+    function leaveRoom() {
+      if (!currentRoom || !socket) return;
+      addLog('send', `chat:leave → { chatRoomId: "${currentRoom.substring(0, 8)}…" }`);
+      socket.emit('chat:leave', { chatRoomId: currentRoom });
+    }
+
+    async function loadMessages(roomId) {
+      try {
+        const resp = await fetch(`/v1/chat/rooms/${roomId}/messages?limit=50`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const data = await resp.json();
+        if (data.success && data.data && data.data.items) {
+          const messages = data.data.items.reverse();
+          const area = document.getElementById('messagesArea');
+          area.innerHTML = '';
+          messages.forEach(msg => appendMessage(msg, false));
+        }
+
+        // 참여자 로드
+        const partResp = await fetch(`/v1/chat/rooms/${roomId}/participants`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        const partData = await partResp.json();
+        if (partData.success && partData.data) {
+          updateParticipants(partData.data.participants, partData.data.allReady);
+        }
+      } catch (e) {
+        addLog('error', `메시지 로드 실패: ${e.message}`);
+      }
+    }
+
+    // ─── 메시지 ───────────────────────────────────────────────────────────────
+
+    function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const content = input.value.trim();
+      if (!content || !currentRoom || !socket) return;
+
+      addLog('send', `chat:message → text: "${content.substring(0, 50)}${content.length > 50 ? '…' : ''}"`);
+      socket.emit('chat:message', {
+        chatRoomId: currentRoom,
+        messageType: 'text',
+        content,
+      });
+
+      input.value = '';
+      handleStopTyping();
+    }
+
+    function sendLocation() {
+      if (!currentRoom || !socket) return;
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const payload = {
+              chatRoomId: currentRoom,
+              messageType: 'location',
+              location: {
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                address: `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`,
+              },
+            };
+            addLog('send', `chat:message → location: (${payload.location.latitude.toFixed(4)}, ${payload.location.longitude.toFixed(4)})`);
+            socket.emit('chat:message', payload);
+          },
+          () => {
+            // 위치 접근 불가 → 더미 위치
+            const payload = {
+              chatRoomId: currentRoom,
+              messageType: 'location',
+              location: { latitude: 37.5554, longitude: 127.0449, address: '한양대학교 정문 앞' },
+            };
+            addLog('send', 'chat:message → location: (37.5554, 127.0449)');
+            socket.emit('chat:message', payload);
+          }
+        );
+      } else {
+        const payload = {
+          chatRoomId: currentRoom,
+          messageType: 'location',
+          location: { latitude: 37.5554, longitude: 127.0449, address: '한양대학교 정문 앞' },
+        };
+        addLog('send', 'chat:message → location: (37.5554, 127.0449)');
+        socket.emit('chat:message', payload);
+      }
+    }
+
+    function appendMessage(msg, scroll = true) {
+      const area = document.getElementById('messagesArea');
+      const div = document.createElement('div');
+      const isMine = myUserId && msg.sender.userId === myUserId;
+      div.className = `message ${isMine ? 'mine' : 'other'}`;
+
+      let html = `<div class="sender">${msg.sender.nickname}</div>`;
+
+      if (msg.messageType === 'text') {
+        html += `<div>${escapeHtml(msg.content || '')}</div>`;
+      } else if (msg.messageType === 'location' && msg.location) {
+        html += `<div>📍 위치 공유</div>`;
+        html += `<div class="location-tag">${msg.location.address || `${msg.location.latitude}, ${msg.location.longitude}`}</div>`;
+      } else {
+        html += `<div>${escapeHtml(msg.content || msg.messageType)}</div>`;
+      }
+
+      const time = new Date(msg.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      html += `<div class="meta">${time}</div>`;
+      div.innerHTML = html;
+      area.appendChild(div);
+
+      if (scroll) area.scrollTop = area.scrollHeight;
+    }
+
+    function appendSystemMessage(text) {
+      const area = document.getElementById('messagesArea');
+      const div = document.createElement('div');
+      div.className = 'message system';
+      div.textContent = text;
+      area.appendChild(div);
+      area.scrollTop = area.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ─── 타이핑 ───────────────────────────────────────────────────────────────
+
+    function handleInput() {
+      if (!currentRoom || !socket) return;
+
+      if (!isTyping) {
+        isTyping = true;
+        socket.emit('chat:typing', { chatRoomId: currentRoom });
+      }
+
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(handleStopTyping, 2000);
+    }
+
+    function handleStopTyping() {
+      if (isTyping && currentRoom && socket) {
+        isTyping = false;
+        socket.emit('chat:stop_typing', { chatRoomId: currentRoom });
+      }
+      clearTimeout(typingTimeout);
+    }
+
+    function handleKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        sendMessage();
+      }
+    }
+
+    // ─── 준비 상태 ────────────────────────────────────────────────────────────
+
+    function toggleReady() {
+      if (!currentRoom || !socket) return;
+      const isReady = document.getElementById('readyToggle').checked;
+
+      addLog('send', `chat:ready → isReady: ${isReady}`);
+      socket.emit('chat:ready', { chatRoomId: currentRoom, isReady });
+
+      document.getElementById('readyLabel').textContent = isReady ? '준비 완료' : '준비 안됨';
+    }
+
+    function updateParticipants(participants, allReady) {
+      const list = document.getElementById('participantsList');
+      list.innerHTML = '';
+
+      participants.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'participant';
+        div.innerHTML = `
+          <span>${escapeHtml(p.nickname)}</span>
+          <span class="ready-badge ${p.isReady ? 'ready' : ''}">${p.isReady ? '준비 완료' : '대기 중'}</span>
+        `;
+        list.appendChild(div);
+      });
+
+      if (allReady) {
+        const notice = document.createElement('div');
+        notice.style.cssText = 'margin-top:8px; padding:6px 10px; background:#238636; border-radius:6px; font-size:12px; text-align:center;';
+        notice.textContent = '✅ 전원 준비 완료!';
+        list.appendChild(notice);
+      }
+    }
+  </script>
+</body>
+</html>
