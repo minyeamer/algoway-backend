@@ -419,3 +419,50 @@ export const getMessagesValidation: ValidationMiddleware[] = [
     .withMessage('before는 올바른 UUID 형식이어야 합니다.'),
   validate,
 ];
+
+/**
+ * Pod ID 경로 파라미터 Validation
+ */
+export const podIdParamValidation: ValidationMiddleware[] = [
+  param('podId').isUUID().withMessage('podId는 올바른 UUID 형식이어야 합니다.'),
+  validate,
+];
+
+/**
+ * User ID 경로 파라미터 Validation
+ */
+export const userIdParamValidation: ValidationMiddleware[] = [
+  param('userId').isUUID().withMessage('userId는 올바른 UUID 형식이어야 합니다.'),
+  validate,
+];
+
+/**
+ * 평가 제출 Validation
+ */
+export const createRatingValidation: ValidationMiddleware[] = [
+  body('podId')
+    .isUUID()
+    .withMessage('podId는 올바른 UUID 형식이어야 합니다.'),
+  body('revieweeId')
+    .isUUID()
+    .withMessage('revieweeId는 올바른 UUID 형식이어야 합니다.'),
+  body('rating')
+    .isInt({ min: 1, max: 5 })
+    .withMessage('rating은 1~5 사이의 정수여야 합니다.')
+    .toInt(),
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('tags는 배열이어야 합니다.')
+    .custom((tags: unknown[]) => {
+      if (!Array.isArray(tags)) return true;
+      if (tags.length > 7) throw new Error('태그는 최대 7개까지 가능합니다.');
+      if (tags.some((t) => typeof t !== 'string')) throw new Error('태그는 문자열이어야 합니다.');
+      return true;
+    }),
+  body('comment')
+    .optional()
+    .isLength({ max: 500 })
+    .withMessage('코멘트는 500자 이내여야 합니다.'),
+  validate,
+];

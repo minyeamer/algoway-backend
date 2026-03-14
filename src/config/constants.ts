@@ -76,6 +76,12 @@ export const ERROR_CODES = {
   NOT_CHAT_PARTICIPANT: 'NOT_CHAT_PARTICIPANT',
   CHAT_ROOM_NOT_FOUND: 'CHAT_ROOM_NOT_FOUND',
 
+  // 평가 관련
+  ALREADY_RATED: 'ALREADY_RATED',
+  CANNOT_RATE_SELF: 'CANNOT_RATE_SELF',
+  POD_NOT_COMPLETED: 'POD_NOT_COMPLETED',
+  RATING_NOT_FOUND: 'RATING_NOT_FOUND',
+
   // 서버 관련
   INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
   DATABASE_ERROR: 'DATABASE_ERROR',
@@ -130,6 +136,23 @@ export const CHAT = {
   MAX_MESSAGE_LIMIT: 100,
   MAX_CONTENT_LENGTH: 1000,
 } as const;
+
+// 평가 설정
+export const RATING = {
+  MIN_SCORE: 1,
+  MAX_SCORE: 5,
+  ALLOWED_TAGS: [
+    'punctual',       // 시간 엄수
+    'friendly',       // 친절함
+    'safe_driving',   // 안전 운전
+    'clean',          // 청결
+    'good_conversation', // 대화가 즐거움
+    'quiet_ride',     // 조용한 탑승
+    'helpful',        // 배려심 있음
+  ] as const,
+} as const;
+
+export type RatingTag = (typeof RATING.ALLOWED_TAGS)[number];
 
 // 인증 코드 설정
 export const VERIFICATION_CODE = {
