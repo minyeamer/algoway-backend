@@ -311,3 +311,58 @@ export interface PodRatingStatus {
   departureTime: Date;
   participants: RateablePodParticipant[];
 }
+
+// ─── 알림 ─────────────────────────────────────────────────────────────────────
+
+export type NotificationType =
+  | 'pod_joined'
+  | 'pod_full'
+  | 'pod_started'
+  | 'pod_completed'
+  | 'message'
+  | 'rating'
+  | 'system';
+
+export interface Notification {
+  notificationId: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data: Record<string, unknown> | null;
+  isRead: boolean;
+  createdAt: Date;
+}
+
+export interface NotificationSettings {
+  settingsId: string;
+  userId: string;
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  podJoined: boolean;
+  podFull: boolean;
+  podStarted: boolean;
+  podCompleted: boolean;
+  message: boolean;
+  rating: boolean;
+  updatedAt: Date;
+}
+
+export interface UpdateNotificationSettingsInput {
+  pushEnabled?: boolean;
+  emailEnabled?: boolean;
+  notificationTypes?: Partial<{
+    pod_joined: boolean;
+    pod_full: boolean;
+    pod_started: boolean;
+    pod_completed: boolean;
+    message: boolean;
+    rating: boolean;
+  }>;
+}
+
+export interface NotificationsResult {
+  items: Notification[];
+  unreadCount: number;
+  total: number;
+}
