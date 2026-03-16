@@ -1,6 +1,6 @@
 {
   "name": "algoway-backend",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "알고타 (Algo-Way) - 실시간 카풀 매칭 플랫폼 백엔드 API 서버",
   "main": "dist/server.js",
   "scripts": {
