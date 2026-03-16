@@ -2384,4 +2384,70 @@ WebSocket 기능을 브라우저에서 직접 테스트할 수 있는 정적 HTM
   - TOKEN_INVALID (401) — 잘못된 JWT 토큰
   - 평가 저장 시 DB 트리거가 manner_score 자동 갱신 확인
 
+────────────────────────────────────────────────────────────────────────────────
+날짜: 2026-03-16
+버전: v1.7.0
+작업: Notifications API 구현 및 테스트
+
+브랜치 결정
+-----------
+  feature/notifications vs feature/notify 검토
+  - 기존 패턴: feature/users, feature/pods, feature/chat, feature/rating
+  - 모두 API 리소스 경로(/v1/xxx)와 1:1 대응
+  - /v1/notifications → feature/notifications 선택 (일관성 우선)
+
+구현 내용
+---------
+  1. Notifications API 5개 엔드포인트 신규 구현
+     - GET    /v1/notifications                  — 알림 목록 조회 (페이지네이션, 미읽음 필터)
+     - PATCH  /v1/notifications/:id/read         — 단일 알림 읽음 처리
+     - PATCH  /v1/notifications/read-all         — 전체 알림 읽음 처리
+     - GET    /v1/notifications/settings         — 알림 수신 설정 조회
+     - PATCH  /v1/notifications/settings         — 알림 수신 설정 업데이트
+
+  2. 신규 파일
+     - src/services/notificationService.ts
+     - src/controllers/notificationController.ts
+     - src/routes/notifications.ts
+
+  3. 수정 파일
+     - src/config/constants.ts     — NOTIFICATION_NOT_FOUND, NOTIFICATION_SETTINGS_NOT_FOUND 추가
+     - src/types/index.ts           — Notification 관련 타입 5개 추가
+     - src/middlewares/validator.ts — notificationIdParamValidation, updateNotificationSettingsValidation 추가
+     - src/app.ts                   — notificationsRouter 등록
+     - docs/api.md                  — Section 6 '미구현' 마커 제거
+
+  4. 라우트 순서 설계 결정
+     - /read-all 와 /settings 경로를 /:notificationId/read 보다 먼저 등록
+     - Express 라우터가 /read-all을 UUID param으로 잘못 매칭하는 충돌 방지
+
+  5. 알림 설정 업데이트 전략
+     - 동적 SET 절 생성: 전달된 필드만 업데이트 (부분 업데이트 지원)
+     - pushEnabled, emailEnabled, notificationTypes.*  선택적 전달 가능
+     - 설정 행이 없는 레거시 계정용 INSERT 폴백 처리
+
+발견 및 해결한 문제
+-------------------
+  1. 서버 첫 기동 시 /v1/notifications → 404 반환
+     - 원인: Docker 컨테이너가 파일 생성 전에 이미 기동돼 있어 새 파일이 로드되지 않음
+     - 해결: docker restart algoway-backend 로 강제 재시작 → 정상 작동 확인
+
+테스트 결과
+-----------
+  Alice (e7996183) 계정으로 다음 항목 검증 완료:
+  - GET  /v1/notifications                    — 목록 조회, 페이지네이션 (200)
+  - GET  /v1/notifications?unreadOnly=true    — 미읽음 필터 (200)
+  - GET  /v1/notifications?page=1&limit=2     — limit 파라미터 (200)
+  - PATCH /v1/notifications/:id/read          — 단일 읽음 처리, unreadCount 감소 확인 (200)
+  - PATCH /v1/notifications/read-all          — 전체 읽음처리, updatedCount 반환, unreadCount→0 (200)
+  - GET  /v1/notifications/settings           — 기본값 전체 true 확인 (200)
+  - PATCH /v1/notifications/settings          — 전체 업데이트 / emailEnabled 만 부분 업데이트 (200)
+  - UNAUTHORIZED (401)                        — 토큰 없이 접근
+  - NOTIFICATION_NOT_FOUND (404)              — 존재하지 않는 알림 읽음처리
+  - NOTIFICATION_NOT_FOUND (404)              — 다른 사용자의 알림 접근 (보안: 존재 자체 비노출)
+  - VALIDATION_ERROR (422)                    — 경로 파라미터에 유효하지 않은 UUID
+  - VALIDATION_ERROR (422)                    — 설정 업데이트 시 잘못된 타입
+  - DB 트리거 검증: 신규 가입 계정에 notification_settings 자동 생성 확인
+
+
 

@@ -1450,9 +1450,9 @@ GET /v1/ratings/pending
 
 ---
 
-## 6. 알림 (Notifications) — 미구현
+## 6. 알림 (Notifications)
 
-> 이 섹션은 설계 명세입니다. 구현은 `feature/notifications` 브랜치에서 진행 예정입니다.
+> 모든 알림 API는 `Authorization: Bearer <access_token>` 인증이 필요합니다.
 
 ---
 

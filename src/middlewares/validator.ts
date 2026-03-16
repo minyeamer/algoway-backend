@@ -466,3 +466,38 @@ export const createRatingValidation: ValidationMiddleware[] = [
     .withMessage('코멘트는 500자 이내여야 합니다.'),
   validate,
 ];
+
+/**
+ * Notification ID 경로 파라미터 Validation
+ */
+export const notificationIdParamValidation: ValidationMiddleware[] = [
+  param('notificationId')
+    .isUUID()
+    .withMessage('notificationId는 올바른 UUID 형식이어야 합니다.'),
+  validate,
+];
+
+/**
+ * 알림 설정 업데이트 Validation
+ */
+export const updateNotificationSettingsValidation: ValidationMiddleware[] = [
+  body('pushEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('pushEnabled는 boolean이어야 합니다.'),
+  body('emailEnabled')
+    .optional()
+    .isBoolean()
+    .withMessage('emailEnabled는 boolean이어야 합니다.'),
+  body('notificationTypes')
+    .optional()
+    .isObject()
+    .withMessage('notificationTypes는 객체여야 합니다.'),
+  body('notificationTypes.pod_joined').optional().isBoolean(),
+  body('notificationTypes.pod_full').optional().isBoolean(),
+  body('notificationTypes.pod_started').optional().isBoolean(),
+  body('notificationTypes.pod_completed').optional().isBoolean(),
+  body('notificationTypes.message').optional().isBoolean(),
+  body('notificationTypes.rating').optional().isBoolean(),
+  validate,
+];
