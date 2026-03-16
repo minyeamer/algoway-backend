@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import * as userController from '../controllers/userController';
+import { getUserRatings } from '../controllers/ratingController';
 import { authenticateToken } from '../middlewares/auth';
 import {
   updateProfileValidation,
   addFavoriteValidation,
   uuidValidation,
   paginationValidation,
+  userIdParamValidation,
 } from '../middlewares/validator';
 import { asyncHandler } from '../middlewares/errorHandler';
 import type { RequestHandler } from 'express';
@@ -52,6 +54,18 @@ router.delete(
   authenticateToken,
   uuidValidation('favoriteId'),
   asyncHandler(userController.deleteFavorite as RequestHandler)
+);
+
+/**
+ * 특정 사용자 공개 평가 목록 GET /v1/users/:userId/ratings
+ * NOTE: /:userId 보다 먼저 선언해야 함
+ */
+router.get(
+  '/:userId/ratings',
+  authenticateToken,
+  userIdParamValidation,
+  paginationValidation,
+  getUserRatings
 );
 
 /**

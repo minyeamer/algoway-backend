@@ -2329,3 +2329,59 @@ WebSocket 기능을 브라우저에서 직접 테스트할 수 있는 정적 HTM
   - 이벤트 로그 패널 정상 출력
   - 한글 IME 입력 후 단일 전송 확인
 
+────────────────────────────────────────────────────────────────────────────────
+날짜: 2026-03-15
+버전: v1.5.0
+작업: Rating API 구현 및 테스트
+
+구현 내용
+---------
+  1. Rating API 5개 엔드포인트 신규 구현
+     - POST   /v1/ratings                  — 평가 제출
+     - GET    /v1/ratings/received         — 내가 받은 평가 목록
+     - GET    /v1/ratings/sent             — 내가 보낸 평가 목록
+     - GET    /v1/ratings/pods/:podId      — 팟 평가 현황 조회
+     - GET    /v1/users/:userId/ratings    — 사용자 공개 평가 조회
+
+  2. 신규 파일
+     - src/services/ratingService.ts
+     - src/controllers/ratingController.ts
+     - src/routes/ratings.ts
+
+  3. 수정 파일
+     - src/config/constants.ts     — RATING 상수, 에러 코드 4개 추가
+     - src/types/index.ts           — Rating 관련 타입 5개 추가
+     - src/middlewares/validator.ts — createRatingValidation 등 3개 추가
+     - src/routes/users.ts          — GET /:userId/ratings 엔드포인트 추가
+     - src/app.ts                   — ratingsRouter 등록
+     - src/utils/jwt.ts             — verifyAccessToken 에러 처리 개선
+
+발견 및 수정한 버그
+-------------------
+  1. ratingService.ts — 잘못된 컬럼명 참조
+    - 원인: pods 테이블 컬럼이 departure_place_name / arrival_place_name 이지만
+      departure_place->>'name' (JSONB 방식)으로 잘못 쿼리
+    - 수정: 실제 컬럼명 직접 사용으로 변경
+
+  2. jwt.ts — verifyAccessToken 에러 래핑 문제
+    - 원인: jwt.verify()에서 던진 JsonWebTokenError / TokenExpiredError를
+      generic Error로 래핑해 auth.ts의 에러 분기 로직이 동작하지 않음
+    - 증상: 잘못된 토큰 전달 시 401 대신 500 INTERNAL_SERVER_ERROR 반환
+    - 수정: try-catch 제거, jwt.verify() 에러를 그대로 전파
+
+테스트 결과
+-----------
+  Alice (e7996183), Bob (da72b373) 두 계정으로 다음 항목 검증 완료:
+  - POST /v1/ratings — 평가 제출 (201)
+  - GET  /v1/ratings/pods/:podId — 평가 현황 조회 (alreadyRated 정확)
+  - GET  /v1/ratings/received — 받은 평가 목록 (Bob 기준)
+  - GET  /v1/ratings/sent — 보낸 평가 목록 (Alice 기준)
+  - GET  /v1/users/:userId/ratings — 공개 평가 + averageRating
+  - CANNOT_RATE_SELF (400) — 자기 자신 평가 시
+  - ALREADY_RATED (409) — 동일 대상 중복 평가 시
+  - POD_NOT_COMPLETED (400) — 미완료 팟 평가 시
+  - VALIDATION_ERROR (400) — rating > 5, 유효하지 않은 태그
+  - TOKEN_INVALID (401) — 잘못된 JWT 토큰
+  - 평가 저장 시 DB 트리거가 manner_score 자동 갱신 확인
+
+

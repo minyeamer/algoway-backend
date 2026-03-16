@@ -10,6 +10,7 @@ import authRouter from './routes/auth';
 import usersRouter from './routes/users';
 import podsRouter from './routes/pods';
 import chatRouter from './routes/chat';
+import ratingsRouter from './routes/ratings';
 
 const app = express();
 
@@ -48,7 +49,7 @@ app.use('/v1/auth', authRouter);
 app.use('/v1/users', usersRouter);
 app.use('/v1/pods', podsRouter);
 app.use('/v1/chat', chatRouter);
-// app.use('/v1/ratings', ratingsRouter);
+app.use('/v1/ratings', ratingsRouter);
 // app.use('/v1/notifications', notificationsRouter);
 
 // 테스트 UI (개발 환경 전용)

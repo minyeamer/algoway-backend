@@ -263,3 +263,51 @@ export interface AppError extends Error {
   statusCode?: number;
   details?: unknown;
 }
+
+// ─── 평가 ─────────────────────────────────────────────────────────────────────
+
+export interface Rating {
+  ratingId: string;
+  podId: string;
+  reviewerId: string;
+  revieweeId: string;
+  rating: number;
+  tags: string[] | null;
+  comment: string | null;
+  createdAt: Date;
+}
+
+export interface RatingWithUsers extends Rating {
+  reviewerNickname: string;
+  reviewerProfileImage: string | null;
+  reviewerVerificationBadge: string | null;
+  revieweeNickname: string;
+  revieweeProfileImage: string | null;
+  podDeparturePlaceName: string;
+  podArrivalPlaceName: string;
+  podDepartureTime: Date;
+}
+
+export interface CreateRatingInput {
+  podId: string;
+  revieweeId: string;
+  rating: number;
+  tags?: string[];
+  comment?: string;
+}
+
+export interface RateablePodParticipant {
+  userId: string;
+  nickname: string;
+  profileImage: string | null;
+  verificationBadge: string | null;
+  alreadyRated: boolean;
+}
+
+export interface PodRatingStatus {
+  podId: string;
+  departurePlaceName: string;
+  arrivalPlaceName: string;
+  departureTime: Date;
+  participants: RateablePodParticipant[];
+}

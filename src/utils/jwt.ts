@@ -18,11 +18,7 @@ export const generatePasswordResetToken = (payload: JwtPayload): string =>
   } as SignOptions);
 
 export const verifyAccessToken = (token: string): JwtPayload => {
-  try {
-    return jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as JwtPayload;
-  } catch {
-    throw new Error('Invalid or expired access token');
-  }
+  return jwt.verify(token, process.env.JWT_ACCESS_SECRET!) as JwtPayload;
 };
 
 export const verifyRefreshToken = (token: string): JwtPayload => {
