@@ -1098,9 +1098,9 @@ PATCH /v1/pods/:podId/status
 
 ---
 
-## 4. 채팅 (Chat) — 미구현
+## 4. 채팅 (Chat)
 
-> 이 섹션은 설계 명세입니다. 구현은 `feature/chat` 브랜치에서 진행 예정입니다.
+> 모든 채팅 API는 `Authorization: Bearer <access_token>` 인증이 필요합니다.
 
 ---
 
@@ -1317,9 +1317,9 @@ GET /v1/chat/rooms/:chatRoomId/participants
 
 ---
 
-## 5. 평가 (Rating) — 미구현
+## 5. 평가 (Rating)
 
-> 이 섹션은 설계 명세입니다. 구현은 `feature/ratings` 브랜치에서 진행 예정입니다.
+> 모든 평가 API는 `Authorization: Bearer <access_token>` 인증이 필요합니다.
 
 ---
 
@@ -1334,16 +1334,16 @@ POST /v1/ratings
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `podId` | UUID | ✅ | 평가 대상 팟 |
-| `targetUserId` | UUID | ✅ | 평가 대상 사용자 |
-| `score` | integer | ✅ | 평점 (1~5) |
+| `revieweeId` | UUID | ✅ | 평가 대상 사용자 |
+| `rating` | integer | ✅ | 평점 (1~5) |
 | `tags` | string[] | — | 평가 태그 |
 | `comment` | string | — | 코멘트 |
 
 ```json
 {
   "podId": "uuid",
-  "targetUserId": "uuid",
-  "score": 5,
+  "revieweeId": "uuid",
+  "rating": 5,
   "tags": ["시간 약속 잘 지킴", "친절함"],
   "comment": "좋은 분이셨습니다!"
 }
@@ -1357,13 +1357,18 @@ POST /v1/ratings
   "data": {
     "ratingId": "uuid",
     "podId": "uuid",
-    "targetUserId": "uuid",
-    "score": 5,
+    "rating": 5,
     "tags": ["시간 약속 잘 지킴", "친절함"],
     "comment": "좋은 분이셨습니다!",
-    "createdAt": "2026-02-23T19:00:00.000Z"
+    "createdAt": "2026-02-23T19:00:00.000Z",
+    "reviewer": {
+      "userId": "uuid",
+      "nickname": "홍길동",
+      "profileImage": "https://...",
+      "verificationBadge": "학생 인증"
+    }
   },
-  "message": "평가가 등록되었습니다."
+  "message": "평가가 완료되었습니다."
 }
 ```
 
@@ -1388,19 +1393,20 @@ GET /v1/ratings/received
 {
   "success": true,
   "data": {
-    "averageScore": 4.5,
-    "totalCount": 15,
     "items": [
       {
         "ratingId": "uuid",
-        "score": 5,
+        "podId": "uuid",
+        "rating": 5,
         "tags": ["시간 약속 잘 지킴", "친절함"],
         "comment": "좋은 분이셨습니다!",
-        "rater": {
+        "createdAt": "2026-02-23T19:00:00.000Z",
+        "reviewer": {
           "userId": "uuid",
-          "nickname": "홍길동"
-        },
-        "createdAt": "2026-02-23T19:00:00.000Z"
+          "nickname": "홍길동",
+          "profileImage": "https://...",
+          "verificationBadge": "학생 인증"
+        }
       }
     ],
     "pagination": {
@@ -1417,11 +1423,18 @@ GET /v1/ratings/received
 
 ---
 
-### 5.3. 평가 가능한 팟 목록
+### 5.3. 내가 보낸 평가 조회
 
 ```
-GET /v1/ratings/pending
+GET /v1/ratings/sent
 ```
+
+**Query Parameters**
+
+| 파라미터 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| `page` | integer | — | 1 | 페이지 번호 |
+| `limit` | integer | — | 20 | 페이지당 항목 수 |
 
 **Response `200`**
 
@@ -1431,22 +1444,78 @@ GET /v1/ratings/pending
   "data": {
     "items": [
       {
+        "ratingId": "uuid",
         "podId": "uuid",
-        "departurePlace": "서울대입구역",
-        "arrivalPlace": "서울대학교 정문",
-        "completedAt": "2026-02-23T18:45:00.000Z",
-        "participantsToRate": [
-          {
-            "userId": "uuid",
-            "nickname": "김철수",
-            "profileImage": "https://..."
-          }
-        ]
+        "rating": 5,
+        "tags": ["시간 약속 잘 지킴", "친절함"],
+        "comment": "좋은 분이셨습니다!",
+        "createdAt": "2026-02-23T19:00:00.000Z",
+        "reviewer": {
+          "userId": "uuid",
+          "nickname": "홍길동",
+          "profileImage": "https://...",
+          "verificationBadge": "학생 인증"
+        }
+      }
+    ],
+    "pagination": {
+      "total": 5,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 1,
+      "hasNext": false,
+      "hasPrev": false
+    }
+  }
+}
+```
+
+---
+
+### 5.4. 팟 평가 현황 조회
+
+완료된 팟에서 본인이 아직 평가하지 않은 참여자를 확인합니다. 팟 참여자만 조회 가능합니다.
+
+```
+GET /v1/ratings/pods/:podId
+```
+
+**Path Parameters**
+
+| 파라미터 | 타입 | 설명 |
+|---|---|---|
+| `podId` | UUID | 조회할 팟 ID |
+
+**Response `200`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "podId": "uuid",
+    "departurePlaceName": "서울대입구역",
+    "arrivalPlaceName": "서울대학교 정문",
+    "departureTime": "2026-02-23T18:30:00.000Z",
+    "participants": [
+      {
+        "userId": "uuid",
+        "nickname": "김철수",
+        "profileImage": "https://...",
+        "verificationBadge": "직장인 인증",
+        "alreadyRated": false
       }
     ]
   }
 }
 ```
+
+**Error Cases**
+
+| 상태 | code | 설명 |
+|---|---|---|
+| 400 | `POD_NOT_COMPLETED` | 팟이 완료 상태가 아님 |
+| 403 | `NOT_PARTICIPANT` | 팟 참여자가 아님 |
+| 404 | `NOT_FOUND` | 팟을 찾을 수 없음 |
 
 ---
 
@@ -1598,36 +1667,49 @@ PATCH /v1/notifications/settings
 
 ---
 
-## 7. WebSocket (실시간 통신) — 미구현
+## 7. WebSocket (실시간 통신)
 
-> 이 섹션은 설계 명세입니다. 구현은 `feature/chat` 브랜치에서 Socket.io 기반으로 진행 예정입니다.
+> Socket.io 클라이언트로 연결합니다. 인증은 연결 시 `auth.token` 또는 `Authorization` 헤더로 전달합니다.
 
 ### 7.1. 연결
 
 ```
-WebSocket URL: wss://api.algoway.com/ws?token={accessToken}
+Socket.io URL: http://localhost:3000 (개발) · https://api.algoway.com (운영)
+```
+
+```javascript
+// 연결 예시
+const socket = io('http://localhost:3000', {
+  auth: { token: accessToken },
+  // 또는: extraHeaders: { Authorization: `Bearer ${accessToken}` }
+});
 ```
 
 ### 7.2. 클라이언트 → 서버
 
 | 이벤트 | data | 설명 |
 |---|---|---|
-| `join_room` | `{ chatRoomId }` | 채팅방 입장 |
-| `leave_room` | `{ chatRoomId }` | 채팅방 나가기 |
-| `send_message` | `{ chatRoomId, messageType, content }` | 메시지 전송 |
-| `update_ready_status` | `{ chatRoomId, isReady }` | 준비 상태 변경 |
-| `typing` | `{ chatRoomId }` | 타이핑 중 알림 |
+| `chat:join` | `{ chatRoomId }` | 채팅방 입장 |
+| `chat:leave` | `{ chatRoomId }` | 채팅방 나가기 (팟 탈퇴 아님) |
+| `chat:message` | `{ chatRoomId, messageType, content?, location? }` | 메시지 전송 (`text` · `location`) |
+| `chat:typing` | `{ chatRoomId }` | 타이핑 중 알림 |
+| `chat:stop_typing` | `{ chatRoomId }` | 타이핑 중지 알림 |
+| `chat:ready` | `{ chatRoomId, isReady }` | 준비 상태 변경 |
 
 ### 7.3. 서버 → 클라이언트
 
 | 이벤트 | data | 설명 |
 |---|---|---|
-| `new_message` | `{ messageId, chatRoomId, content, messageType, sender, createdAt }` | 새 메시지 수신 |
-| `ready_status_updated` | `{ chatRoomId, userId, isReady }` | 참여자 준비 상태 변경 |
-| `user_joined` | `{ chatRoomId, user }` | 새 참여자 입장 |
-| `user_left` | `{ chatRoomId, userId }` | 참여자 나가기 |
-| `user_typing` | `{ chatRoomId, userId, nickname }` | 타이핑 중 알림 |
-| `pod_status_updated` | `{ podId, status }` | 팟 상태 변경 |
+| `chat:joined` | `{ chatRoomId, message }` | 본인 입장 완료 확인 |
+| `chat:left` | `{ chatRoomId, message }` | 본인 퇴장 완료 확인 |
+| `chat:user_joined` | `{ chatRoomId, userId, nickname, timestamp }` | 다른 참여자 입장 |
+| `chat:user_left` | `{ chatRoomId, userId, nickname, timestamp }` | 다른 참여자 퇴장 |
+| `chat:new_message` | `{ messageId, chatRoomId, content, messageType, sender, createdAt }` | 새 메시지 수신 |
+| `chat:user_typing` | `{ chatRoomId, userId, nickname, timestamp }` | 타이핑 중 알림 |
+| `chat:user_stop_typing` | `{ chatRoomId, userId, nickname, timestamp }` | 타이핑 중지 알림 |
+| `chat:ready_update` | `{ chatRoomId, userId, nickname, isReady, participants, allReady, timestamp }` | 준비 상태 변경 브로드캐스트 |
+| `chat:user_disconnected` | `{ chatRoomId, userId, nickname, timestamp }` | 참여자 연결 끊김 |
+| `error:chat` | `{ event, code, message }` | 오류 응답 |
 
 ---
 
@@ -1640,10 +1722,10 @@ WebSocket URL: wss://api.algoway.com/ws?token={accessToken}
 | 1. 인증 (Auth) | ✅ 구현 완료 | v1.1.0 |
 | 2. 사용자 (Users) | ✅ 구현 완료 | v1.2.0 |
 | 3. 팟 (Pods) | ✅ 구현 완료 | v1.3.0 |
-| 4. 채팅 (Chat) | 📋 설계 완료 | — |
-| 5. 평가 (Rating) | 📋 설계 완료 | — |
-| 6. 알림 (Notifications) | 📋 설계 완료 | — |
-| 7. WebSocket | 📋 설계 완료 | — |
+| 4. 채팅 (Chat) | ✅ 구현 완료 | v1.4.0 |
+| 5. 평가 (Rating) | ✅ 구현 완료 | v1.5.0 |
+| 6. 알림 (Notifications) | ✅ 구현 완료 | v1.7.0 |
+| 7. WebSocket | ✅ 구현 완료 | v1.4.1 |
 
 ### B. 페이지별 API 매핑
 
@@ -1703,7 +1785,7 @@ interface FavoriteRoute {
   createdAt: Date;
 }
 
-// 채팅 메시지 (미구현)
+// 채팅 메시지
 interface Message {
   messageId: string;
   chatRoomId: string;
@@ -1714,13 +1796,13 @@ interface Message {
   createdAt: Date;
 }
 
-// 평가 (미구현)
+// 평가
 interface Rating {
   ratingId: string;
   podId: string;
-  raterId: string;
-  targetUserId: string;
-  score: number;               // 1~5
+  reviewerId: string;
+  revieweeId: string;
+  rating: number;              // 1~5
   tags: string[];
   comment: string | null;
   createdAt: Date;
