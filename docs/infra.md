@@ -111,10 +111,15 @@ algoway/
 │   ├── database-naming.md          # DB 네이밍 규칙 (snake_case ↔ camelCase)
 │   ├── infra.md                    # 인프라 & 개발 운영 설계 (본 문서)
 │   ├── page.md                     # 페이지 기획서 (프론트엔드용)
+│   ├── planning.md                 # 서비스 기획서 (README 원본)
 │   └── tests/                      # 수동 cURL 테스트 가이드
 │       ├── 01-auth.md
 │       ├── 02-users.md
-│       └── 03-pods.md
+│       ├── 03-pods.md
+│       ├── 04-chat.md
+│       ├── 05-websocket.md
+│       ├── 06-rating.md
+│       └── 07-notifications.md
 │
 ├── src/
 │   ├── config/                     # ⚙️ 설정 파일
@@ -124,7 +129,10 @@ algoway/
 │   │
 │   ├── controllers/                # 🎮 컨트롤러 (라우트 핸들러)
 │   │   ├── authController.ts
+│   │   ├── chatController.ts
+│   │   ├── notificationController.ts
 │   │   ├── podController.ts
+│   │   ├── ratingController.ts
 │   │   └── userController.ts
 │   │
 │   ├── middlewares/                # 🛡️ 미들웨어
@@ -132,22 +140,28 @@ algoway/
 │   │   ├── errorHandler.ts         # 전역 에러 핸들러 + asyncHandler
 │   │   └── validator.ts            # 입력 검증 (express-validator)
 │   │
-│   ├── repositories/               # 💾 DB CRUD 추상화 (미구현, 예정)
+│   ├── repositories/               # 💾 DB CRUD 추상화 (예정)
 │   │
 │   ├── routes/                     # 🛣️ 라우트 (도메인별 파일)
 │   │   ├── auth.ts
+│   │   ├── chat.ts
+│   │   ├── notifications.ts
 │   │   ├── pods.ts
+│   │   ├── ratings.ts
 │   │   └── users.ts
 │   │
 │   ├── services/                   # 🧩 비즈니스 로직
 │   │   ├── authService.ts          # 로그인, JWT 발급, 인증 코드
+│   │   ├── chatService.ts          # 채팅방, 메시지, 준비 상태
 │   │   ├── emailService.ts         # 이메일 전송 (Nodemailer + Mailpit)
+│   │   ├── notificationService.ts  # 알림 목록, 읽음처리, 설정
 │   │   ├── podService.ts           # 팟 생성, 검색, 참여/나가기
+│   │   ├── ratingService.ts        # 평가 제출, 조회
 │   │   └── userService.ts          # 프로필 조회/수정, 즐겨찾기, 탑승내역
 │   │
 │   ├── types/                      # 📐 TypeScript 타입 정의
 │   │   ├── express.d.ts            # Express Request 확장 (req.user)
-│   │   └── index.ts                # 공통 타입 (Auth, User, Pod 등)
+│   │   └── index.ts                # 공통 타입 (Auth, User, Pod, Chat, Rating, Notification 등)
 │   │
 │   ├── utils/                      # 🔧 유틸리티
 │   │   ├── caseConverter.ts        # snake_case ↔ camelCase 변환
@@ -155,9 +169,14 @@ algoway/
 │   │   ├── logger.ts               # Winston 로거
 │   │   └── response.ts             # API 응답 포맷 (successResponse 등)
 │   │
-│   ├── websocket/                  # 🔌 실시간 통신 (미구현, 예정)
+│   ├── websocket/                  # 🔌 실시간 통신 (Socket.io)
+│   │   ├── index.ts                # Socket.io 서버 초기화 + JWT 인증 미들웨어
+│   │   └── chatHandler.ts          # 채팅 이벤트 핸들러 (join/leave/message/typing/ready)
 │   │
 │   └── app.ts                      # 📦 Express 앱 설정 (미들웨어, 라우트 등록)
+│
+├── public/                         # 🌐 정적 파일
+│   └── test-chat.html              # 개발용 WebSocket 테스트 UI
 │
 ├── scripts/                        # 📜 스크립트
 │   └── init-db.sql                 # PostgreSQL 스키마 초기화

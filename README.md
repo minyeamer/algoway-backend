@@ -46,7 +46,7 @@
 3. 실시간 채팅
    - 매칭 완료 후 그룹 채팅방이 자동 생성됩니다. 세부 픽업 장소, 시간 조율, 비용 협의가 가능하며 WebSocket 기반 실시간 통신을 지원합니다.
 
-4. 인증 시스템   
+4. 인증 시스템
    - 대학생: 학교 이메일(.ac.kr) 인증 또는 학생증 업로드
    - 직장인: 회사 이메일 인증 또는 재직증명서 업로드
    - 인증 뱃지로 신뢰도 시각화
@@ -57,9 +57,9 @@
 |---|---|
 |Frontend|Next.js + TailwindCSS|
 |Backend|Node.js + Express / Supabase|
-|실시간 채팅|Supabase Realtime / Socket.io|
+|실시간 채팅|Socket.io (WebSocket)|
 |지도|Kakao Map API|
-|인증|Supabase Auth + 이메일 인증|
+|인증|이메일 인증 (OTP) + JWT|
 |배포|Vercel (프론트) + Railway (백엔드)|
 
 ## 6. 수익 모델 (향후)
@@ -67,3 +67,91 @@
 - 프리미엄 인증 뱃지 (빠른 인증 처리)
 - 자주 이용하는 루트 즐겨찾기 팟 알림 유료 구독
 - 기업 직장인 단체 플랜 (B2B)
+
+---
+
+## 7. 백엔드 구현 현황
+
+> 이 레포지토리는 알고타 백엔드 API 서버입니다.
+> **Node.js 20 + Express 5 + TypeScript** 기반으로 구현되어 있습니다.
+
+### 기술 스택 (백엔드)
+
+| 분류 | 기술 |
+|---|---|
+| 런타임 | Node.js 20 |
+| 프레임워크 | Express 5.x + TypeScript 5.x |
+| 데이터베이스 | Supabase PostgreSQL + PostGIS |
+| 캐시 / 세션 | Redis |
+| 실시간 통신 | Socket.io |
+| 인증 | JWT (Access Token + Refresh Token) |
+| 이메일 | Nodemailer + Mailpit (개발) |
+| 컨테이너 | Docker + Docker Compose |
+
+### 구현된 API (v1.7.0)
+
+| 버전 | 도메인 | 엔드포인트 수 | 주요 기능 |
+|---|---|---|---|
+| v1.1.0 | Auth | 10개 | 회원가입(OTP 인증), 로그인, 토큰 갱신, 비밀번호 변경 |
+| v1.2.0 | Users | 7개 | 프로필 조회/수정, 탑승 내역, 즐겨찾는 경로 |
+| v1.3.0 | Pods | 8개 | 팟 생성/조회/참여, PostGIS 반경 검색 |
+| v1.4.0 | Chat REST | 5개 | 채팅방 목록, 메시지 이력, 준비 상태 |
+| v1.4.1 | Chat WebSocket | 7 events | 실시간 메시지, 타이핑, 준비 완료, 입퇴장 |
+| v1.5.0 | Rating | 5개 | 평가 제출, 받은/보낸 평가, 팟 평가 현황 |
+| v1.7.0 | Notifications | 5개 | 알림 목록, 읽음처리, 알림 설정 |
+
+**REST API 총 40개 엔드포인트 + WebSocket 7개 이벤트**
+
+### WebSocket 이벤트 (Socket.io)
+
+> 연결: `ws://localhost:3000` — `Authorization: Bearer <token>` 인증 필요
+
+| 이벤트 (클라이언트 → 서버) | 설명 |
+|---|---|
+| `chat:join` | 채팅방 입장 |
+| `chat:leave` | 채팅방 퇴장 |
+| `chat:message` | 메시지 전송 (text / location) |
+| `chat:typing` | 타이핑 시작 알림 |
+| `chat:stop_typing` | 타이핑 중지 알림 |
+| `chat:ready` | 준비 완료 상태 변경 |
+
+| 이벤트 (서버 → 클라이언트) | 설명 |
+|---|---|
+| `chat:joined` | 입장 완료 응답 |
+| `chat:user_joined` | 다른 사용자 입장 알림 |
+| `chat:user_left` | 다른 사용자 퇴장 알림 |
+| `chat:new_message` | 새 메시지 수신 |
+| `chat:user_typing` | 다른 사용자 타이핑 중 |
+| `chat:user_stop_typing` | 다른 사용자 타이핑 중지 |
+| `chat:ready_update` | 준비 상태 변경 브로드캐스트 |
+| `chat:user_disconnected` | 사용자 연결 끊김 알림 |
+| `error:chat` | 채팅 관련 오류 응답 |
+
+### 로컬 개발 환경 실행
+
+```bash
+# 환경 변수 설정
+cp .env.example .env
+# .env에 Supabase DATABASE_URL, JWT_SECRET 등 입력
+
+# 컨테이너 실행 (Redis + Backend with hot-reload)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+# 로그 확인
+docker logs -f algoway-backend
+
+# 서버 상태 확인
+curl http://localhost:3000/health
+```
+
+### 문서
+
+| 문서 | 경로 |
+|---|---|
+| REST API 명세 | [docs/api.md](docs/api.md) |
+| 인프라 설계 | [docs/infra.md](docs/infra.md) |
+| DB 네이밍 규칙 | [docs/database-naming.md](docs/database-naming.md) |
+| 테스트 가이드 | [docs/tests/](docs/tests/) |
+| 서비스 기획서 | [docs/planning.md](docs/planning.md) |
+| 페이지 기획서 | [docs/page.md](docs/page.md) |
+| AI 협업 가이드라인 | [docs/ai-guidelines.md](docs/ai-guidelines.md) |

@@ -75,7 +75,7 @@ export const markNotificationRead = async (
   res: Response
 ): Promise<void> => {
   const userId = req.user.userId;
-  const { notificationId } = req.params;
+  const notificationId = String(req.params.notificationId);
 
   await notificationService.markNotificationRead(notificationId, userId);
 
