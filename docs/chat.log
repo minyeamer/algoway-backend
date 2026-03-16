@@ -2449,5 +2449,50 @@ WebSocket 기능을 브라우저에서 직접 테스트할 수 있는 정적 HTM
   - VALIDATION_ERROR (422)                    — 설정 업데이트 시 잘못된 타입
   - DB 트리거 검증: 신규 가입 계정에 notification_settings 자동 생성 확인
 
+────────────────────────────────────────────────────────────────────────────────
+날짜: 2026-03-17
+버전: v1.7.0 (패치)
+작업: 문서 현행화 및 TypeScript 오류 수정
+
+작업 내용
+---------
+  1. notificationController.ts TypeScript 오류 수정
+     - 원인: req.params 구조분해 시 타입이 string | string[]로 추론되어
+       string만 받는 notificationService.markNotificationRead()에 TS2345 발생
+     - 수정: const { notificationId } = req.params → String(req.params.notificationId)
+     - 참고: 런타임에는 정상 동작했으나 컴파일 오류 상태였음
+
+  2. infra.md 폴더 구조 현행화
+     - 추가된 파일 반영: chatController, chatService, notificationController,
+       notificationService, ratingController, ratingService, routes/chat,
+       routes/notifications, routes/ratings, websocket/index.ts,
+       websocket/chatHandler.ts, public/test-chat.html
+     - 미구현(예정) 표시 제거: websocket/ 섹션
+     - docs/tests/ 하위 파일 목록 전체 반영 (04~07 추가)
+     - docs/planning.md 항목 추가
+
+  3. docs/planning.md 생성
+     - README.md 원본 기획서 내용을 docs/planning.md로 복사 보관
+
+  4. README.md 백엔드 구현 현황 보강
+     - 기획서 내용(1~6번 섹션) 유지
+     - §7 백엔드 구현 현황 섹션 추가:
+       - 기술 스택 상세 (백엔드)
+       - 구현된 API 버전별 요약 테이블 (v1.1.0 ~ v1.7.0)
+       - WebSocket 이벤트 목록 (클라이언트↔서버)
+       - 로컬 개발 환경 실행 방법
+       - 문서 링크 목록
+
+WebSocket 구현 검증
+-------------------
+  chat.log 기록과 코드를 대조하여 계획 대비 구현 완료 여부 검증:
+  - chat:join     ✅ 구현 (채팅방 입장, 참여자 검증, Socket.io Room 참여)
+  - chat:leave    ✅ 구현 (정상 퇴장, 다른 참여자에게 알림)
+  - chat:message  ✅ 구현 (text/location 타입, DB 저장, Room 브로드캐스트)
+  - chat:typing   ✅ 구현 (DB 저장 없이 실시간 전파)
+  - chat:stop_typing ✅ 구현
+  - chat:ready    ✅ 구현 (DB 업데이트, allReady 상태 브로드캐스트)
+  - disconnect    ✅ 구현 (disconnecting 이벤트로 모든 참여 Room에 알림)
+  - JWT 인증 미들웨어 ✅ 구현 (handshake.auth.token / Authorization 헤더 양쪽 지원)
 
 
