@@ -70,9 +70,27 @@
 
 ---
 
-## 7. 백엔드 구현 현황
+## 7. 구현 현황
 
-> 이 레포지토리는 알고타 백엔드 API 서버입니다.
+> **모노레포 구조**: 루트(백엔드) + `frontend/`(Next.js) — npm workspaces로 관리
+
+### 프론트엔드 (개발 예정)
+
+| 버전 | Phase | 주요 기능 |
+|---|---|---|
+| v2.0.0 | Phase 1 | 기반 구성 (Next.js 14 + TailwindCSS + shadcn/ui) |
+| v2.1.0 | Phase 2 | 인증 UI (온보딩, 회원가입, 로그인) |
+| v2.2.0 | Phase 3 | 팟 핵심 기능 (카카오 지도, 팟 목록/상세/생성) |
+| v2.3.0 | Phase 4 | 실시간 채팅 (Socket.io 클라이언트) |
+| v2.4.0 | Phase 5 | 마이페이지 & 알림 |
+| v2.5.0 | Phase 6 | 품질 개선 (PWA, 접근성, 성능 최적화) |
+
+> 상세 구현 계획: [docs/frontend/plan.md](docs/frontend/plan.md)
+
+---
+
+### 백엔드 구현 현황
+
 > **Node.js 20 + Express 5 + TypeScript** 기반으로 구현되어 있습니다.
 
 ### 기술 스택 (백엔드)
@@ -130,27 +148,35 @@
 ### 로컬 개발 환경 실행
 
 ```bash
-# 환경 변수 설정
+# 백엔드 (Docker)
 cp .env.example .env
 # .env에 Supabase DATABASE_URL, JWT_SECRET 등 입력
-
-# 컨테이너 실행 (Redis + Backend with hot-reload)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-
-# 로그 확인
 docker logs -f algoway-backend
-
-# 서버 상태 확인
 curl http://localhost:3000/health
+
+# 백엔드 직접 실행 (Docker 없이)
+cd backend && npm install && npm run dev
+
+# 프론트엔드
+cp frontend/.env.local.example frontend/.env.local
+# NEXT_PUBLIC_KAKAO_MAP_KEY 등 입력
+cd frontend && npm install && npm run dev
+# → http://localhost:3001
+
+# 루트에서 실행
+npm run dev:backend    # backend/
+npm run dev:frontend   # frontend/
 ```
 
 ### 문서
 
 | 문서 | 경로 |
 |---|---|
-| REST API 명세 | [docs/api.md](docs/api.md) |
-| 인프라 설계 | [docs/infra.md](docs/infra.md) |
-| DB 네이밍 규칙 | [docs/database-naming.md](docs/database-naming.md) |
+| REST API 명세 | [docs/backend/api.md](docs/backend/api.md) |
+| 인프라 설계 | [docs/backend/infra.md](docs/backend/infra.md) |
+| DB 네이밍 규칙 | [docs/backend/database-naming.md](docs/backend/database-naming.md) |
+| **프론트엔드 구현 계획** | [docs/frontend/plan.md](docs/frontend/plan.md) |
 | 테스트 가이드 | [docs/tests/](docs/tests/) |
 | 서비스 기획서 | [docs/planning.md](docs/planning.md) |
 | 페이지 기획서 | [docs/page.md](docs/page.md) |

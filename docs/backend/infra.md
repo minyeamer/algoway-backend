@@ -101,104 +101,72 @@
 
 ## 3. 전체 폴더 구조
 
+> v1.7.0 이후 `backend/` + `frontend/` 대칭 구조의 모노레포로 재편되었습니다.
+> 루트 `package.json`이 npm workspaces로 두 패키지를 관리합니다.
+> 프론트엔드 상세 설계는 [docs/frontend/plan.md](../frontend/plan.md)를 참고하세요.
+
 ```
-algoway/
+algoway/                            ← 루트 = Workspace 관리자 전용
 │
 ├── docs/                           # 📄 프로젝트 문서
-│   ├── ai-guidelines.md            # AI 협업 가이드라인
-│   ├── api.md                      # REST API 명세
-│   ├── chat.log                    # 주요 기술 의사결정 로그
-│   ├── database-naming.md          # DB 네이밍 규칙 (snake_case ↔ camelCase)
-│   ├── infra.md                    # 인프라 & 개발 운영 설계 (본 문서)
-│   ├── page.md                     # 페이지 기획서 (프론트엔드용)
-│   ├── planning.md                 # 서비스 기획서 (README 원본)
-│   └── tests/                      # 수동 cURL 테스트 가이드
-│       ├── 01-auth.md
-│       ├── 02-users.md
-│       ├── 03-pods.md
-│       ├── 04-chat.md
-│       ├── 05-websocket.md
-│       ├── 06-rating.md
-│       └── 07-notifications.md
+│   ├── ai-guidelines.md
+│   ├── page.md
+│   ├── planning.md
+│   ├── backend/
+│   │   ├── api.md
+│   │   ├── database-naming.md
+│   │   └── infra.md                # 본 문서
+│   ├── frontend/
+│   │   └── plan.md                 # 프론트엔드 구현 계획
+│   └── tests/
+│       ├── 01-auth.md ~ 07-notifications.md
 │
-├── src/
-│   ├── config/                     # ⚙️ 설정 파일
-│   │   ├── constants.ts            # 상수 정의 (Enum, 에러 코드 등)
-│   │   ├── database.ts             # PostgreSQL Pool 연결 (camelCase 변환 포함)
-│   │   └── redis.ts                # Redis 클라이언트
-│   │
-│   ├── controllers/                # 🎮 컨트롤러 (라우트 핸들러)
-│   │   ├── authController.ts
-│   │   ├── chatController.ts
-│   │   ├── notificationController.ts
-│   │   ├── podController.ts
-│   │   ├── ratingController.ts
-│   │   └── userController.ts
-│   │
-│   ├── middlewares/                # 🛡️ 미들웨어
-│   │   ├── auth.ts                 # JWT 인증 (Bearer Token)
-│   │   ├── errorHandler.ts         # 전역 에러 핸들러 + asyncHandler
-│   │   └── validator.ts            # 입력 검증 (express-validator)
-│   │
-│   ├── repositories/               # 💾 DB CRUD 추상화 (예정)
-│   │
-│   ├── routes/                     # 🛣️ 라우트 (도메인별 파일)
-│   │   ├── auth.ts
-│   │   ├── chat.ts
-│   │   ├── notifications.ts
-│   │   ├── pods.ts
-│   │   ├── ratings.ts
-│   │   └── users.ts
-│   │
-│   ├── services/                   # 🧩 비즈니스 로직
-│   │   ├── authService.ts          # 로그인, JWT 발급, 인증 코드
-│   │   ├── chatService.ts          # 채팅방, 메시지, 준비 상태
-│   │   ├── emailService.ts         # 이메일 전송 (Nodemailer + Mailpit)
-│   │   ├── notificationService.ts  # 알림 목록, 읽음처리, 설정
-│   │   ├── podService.ts           # 팟 생성, 검색, 참여/나가기
-│   │   ├── ratingService.ts        # 평가 제출, 조회
-│   │   └── userService.ts          # 프로필 조회/수정, 즐겨찾기, 탑승내역
-│   │
-│   ├── types/                      # 📐 TypeScript 타입 정의
-│   │   ├── express.d.ts            # Express Request 확장 (req.user)
-│   │   └── index.ts                # 공통 타입 (Auth, User, Pod, Chat, Rating, Notification 등)
-│   │
-│   ├── utils/                      # 🔧 유틸리티
-│   │   ├── caseConverter.ts        # snake_case ↔ camelCase 변환
-│   │   ├── jwt.ts                  # JWT 토큰 생성/검증
-│   │   ├── logger.ts               # Winston 로거
-│   │   └── response.ts             # API 응답 포맷 (successResponse 등)
-│   │
-│   ├── websocket/                  # 🔌 실시간 통신 (Socket.io)
-│   │   ├── index.ts                # Socket.io 서버 초기화 + JWT 인증 미들웨어
-│   │   └── chatHandler.ts          # 채팅 이벤트 핸들러 (join/leave/message/typing/ready)
-│   │
-│   └── app.ts                      # 📦 Express 앱 설정 (미들웨어, 라우트 등록)
+├── backend/                        # 🛠️ Node.js + Express 백엔드
+│   ├── src/
+│   │   ├── config/                 # ⚙️ 설정 파일
+│   │   │   ├── constants.ts
+│   │   │   ├── database.ts
+│   │   │   └── redis.ts
+│   │   ├── controllers/            # 🎮 컨트롤러 (라우트 핸들러)
+│   │   ├── middlewares/            # 🛡️ 미들웨어
+│   │   ├── repositories/           # 💾 DB CRUD 추상화 (예정)
+│   │   ├── routes/                 # 🛣️ 라우트
+│   │   ├── services/               # 🧩 비즈니스 로직
+│   │   ├── types/                  # 📐 TypeScript 타입
+│   │   ├── utils/                  # 🔧 유틸리티
+│   │   ├── websocket/              # 🔌 Socket.io 핸들러
+│   │   └── app.ts
+│   ├── public/                     # 🌐 정적 파일 (개발용 WebSocket 테스트 UI)
+│   ├── scripts/                    # 📜 DB 초기화 스크립트
+│   ├── server.ts                   # 🚀 서버 진입점
+│   ├── tsconfig.json
+│   ├── Dockerfile
+│   ├── Dockerfile.dev
+│   └── package.json
 │
-├── public/                         # 🌐 정적 파일
-│   └── test-chat.html              # 개발용 WebSocket 테스트 UI
-│
-├── scripts/                        # 📜 스크립트
-│   └── init-db.sql                 # PostgreSQL 스키마 초기화
+├── frontend/                       # 📱 Next.js 프론트엔드
+│   ├── src/
+│   │   ├── app/                    # App Router 페이지
+│   │   ├── components/             # UI 컴포넌트
+│   │   ├── hooks/                  # 커스텀 React Hook
+│   │   ├── lib/                    # API 클라이언트, Socket.io, 카카오 지도
+│   │   ├── store/                  # Zustand 상태 스토어
+│   │   ├── middleware.ts           # 인증 라우트 가드
+│   │   └── types/                  # TypeScript 타입
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   └── package.json
 │
 ├── infra/                          # 🏗️ 인프라 설정
-│   └── redis/
-│       └── redis.conf              # Redis 설정
+│   └── redis/redis.conf
 │
-├── docker-compose.yml              # 🐳 Docker Compose (운영 공통)
-├── docker-compose.dev.yml          # 개발 환경 오버라이드 (ts-node-dev)
+├── docker-compose.yml              # 🐳 Docker Compose — build context: ./backend
+├── docker-compose.dev.yml          # 개발 환경 오버라이드
 │
-├── Dockerfile                      # 운영용 이미지 (멀티스테이지, tsc 빌드)
-├── Dockerfile.dev                  # 개발용 이미지 (ts-node-dev)
-│
-├── server.ts                       # 🚀 서버 진입점
-├── tsconfig.json                   # TypeScript 컴파일러 설정
-├── package.json
-├── package-lock.json
-├── .env.example                    # 환경 변수 예시
-├── .env                            # 실제 환경 변수 (gitignore)
-├── .gitignore
-├── LICENSE
+├── .env                            # 백엔드 환경 변수 (gitignore)
+├── .env.example
+├── package.json                    # 루트 workspace 관리자
 └── README.md
 ```
 

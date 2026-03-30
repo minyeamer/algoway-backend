@@ -90,11 +90,21 @@ feat(auth): implement↔auth            ← 특수기호 사용
 |---|---|
 | `main` | 운영 브랜치 (항상 배포 가능한 상태 유지) |
 | `dev` | 개발 통합 브랜치 (기능 브랜치들이 여기에 병합) |
-| `feature/*` | 기능 개발 브랜치 (dev에서 분기) |
+| `feature/be-*` | 백엔드 기능 개발 브랜치 (dev에서 분기) |
+| `feature/fe-*` | 프론트엔드 기능 개발 브랜치 (dev에서 분기) |
+
+### 브랜치 네이밍 규칙
+
+| 유형 | 형식 | 예시 |
+|---|---|---|
+| 백엔드 기능 | `feature/be-<도메인>` | `feature/be-auth`, `feature/be-pods` |
+| 프론트엔드 기능 | `feature/fe-<페이지/기능>` | `feature/fe-auth`, `feature/fe-pod-list` |
+
+> 프론트엔드 작업도 `dev` 브랜치에 직접 커밋하지 않고 반드시 `feature/fe-*` 브랜치를 사용한다.
 
 ### 작업 순서
 
-1. `dev`에서 `feature/xxx` 브랜치 생성
+1. `dev`에서 `feature/be-xxx` 또는 `feature/fe-xxx` 브랜치 생성
 2. 기능 개발 및 커밋 (chat.log 포함)
 3. `feature/xxx` → `dev` merge (`--no-ff`)
 4. `dev` → `origin/dev` push
