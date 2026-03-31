@@ -165,3 +165,245 @@
 다음 단계 (예정)
 ----------------
   - Phase 3: 팟 핵심 기능 (홈 피드, 카카오 지도, 팟 CRUD, 검색)
+
+================================================================================
+[2026-04-01] Phase 2 인증 버그 수정 및 전체 검증 완료
+================================================================================
+
+배경
+----
+- 로그인 버튼 클릭 시 URL 파라미터에 비밀번호가 노출되는 심각한 보안 문제 발생
+- 회원가입 버튼 클릭 후 아무 반응 없음
+- Docker frontend 서비스가 미가동 상태
+- Supabase 프로젝트 무료 티어 자동 일시정지
+
+작업 내용
+---------
+1. 로그인 폼 GET 제출 문제 분석 및 수정 (보안)
+   - 원인: next.config.mjs의 CSP가 'unsafe-eval'을 허용하지 않아
+     Next.js Webpack 개발 서버의 eval 기반 소스맵 실행 차단
+     → React 하이드레이션 완전 실패 → JS 이벤트 핸들러 미연결
+     → <form>이 HTML 기본값인 GET으로 제출, URL에 비밀번호 그대로 노출
+   - 수정: NODE_ENV !== 'production' 시 CSP 헤더 비활성화
+   - 방어: 로그인/회원가입 <form>에 method="post" 추가
+
+2. Docker frontend 서비스 볼륨 설정 보완
+   - 문제: docker-compose.dev.yml이 src/만 마운트하여 next.config.mjs 수정이
+     컨테이너에 반영되지 않음 (이미지에 구운 구버전 사용)
+   - 수정: volumes에 next.config.mjs, tailwind.config.ts, postcss.config.mjs 추가
+   - 결과: 설정 파일 변경이 컨테이너 재생성 없이 즉시 반영됨
+
+3. OTP 필드명 불일치 수정
+   - 원인: 프론트엔드 ConfirmVerifyRequest.code → 백엔드는 verificationCode 기대
+   - 수정: frontend/src/types/auth.ts 및 API 호출 코드 일치
+
+4. 회원가입 후 자동 로그인 추가
+   - 원인: 백엔드 /v1/auth/signup은 토큰 없이 userInfo만 반환
+   - 수정: signup 완료 후 내부적으로 login() 자동 호출하여 토큰 획득 → /home 이동
+
+5. 토큰 갱신 API 경로 수정
+   - 원인: 프론트 /auth/token/refresh ≠ 백엔드 /auth/refresh
+   - 수정: frontend/src/lib/api/client.ts 경로 통일
+
+6. authStore refresh_token 쿠키 저장 추가
+   - 원인: 백엔드가 refreshToken을 body로만 반환, 미들웨어는 refresh_token 쿠키 확인
+     → 로그인 성공해도 미들웨어가 미인증으로 판단, /login으로 재리다이렉트
+   - 수정: authStore.setAuth()에서 refreshToken을 document.cookie로 직접 저장
+     (refresh_token=value; path=/; max-age=604800; SameSite=Lax)
+   - 수정: authStore.clearAuth()에서 쿠키 만료 처리
+
+7. 서비스 페이지 구현 (Phase 2.5)
+   - /home: 인사말, 출발지/도착지 검색바, 빠른 실행(팟 만들기/찾기), 내 팟 목록, 최근 경로
+   - /search: 검색 UI (플레이스홀더)
+   - /chat: 채팅 목록 UI (플레이스홀더)
+   - /mypage: 마이페이지 UI (플레이스홀더)
+   - /pods: 팟 목록 UI (플레이스홀더)
+   - /pods/create: 팟 생성 UI (플레이스홀더)
+
+8. CORS 정책 수정 (보안)
+   - 원인: .env CORS_ORIGIN=* + frontend withCredentials: true 조합
+     → 브라우저 CORS 정책 위반으로 API 요청 전면 차단
+     (Access-Control-Allow-Origin wildcard은 credentials 모드와 호환 불가)
+   - 수정: .env CORS_ORIGIN=http://localhost:3001
+   - 수정: backend/src/app.ts CORS 미들웨어를 동적 origin 함수로 교체
+     (콤마 구분 다중 origin 지원, allowedOrigins.includes() 검사)
+   - 검증: curl -X OPTIONS preflight → Access-Control-Allow-Origin: http://localhost:3001 확인
+
+9. Supabase 프로젝트 복구
+   - 원인: 무료 티어 7일 미사용으로 자동 일시정지 (Tenant or user not found 에러)
+   - 조치: Supabase 대시보드 Resume project 수동 복구
+
+설계 결정 사항
+--------------
+  CORS 전략
+  - 개발: CORS_ORIGIN=http://localhost:3001 (단일)
+  - 운영: CORS_ORIGIN=https://algoway.com,https://www.algoway.com (콤마 구분 다중 설정)
+  - credentials 모드 사용 시 wildcard(*) 절대 불가 — 명시적 origin 필수
+
+  인증 쿠키 전략
+  - refreshToken: JS에서 document.cookie로 설정 (SameSite=Lax, httpOnly 미설정)
+    → Next.js 미들웨어가 Edge에서 읽을 수 있음
+  - accessToken: Zustand 메모리 저장 (페이지 새로고침 시 재발급 필요)
+  - 장기적으로 백엔드에서 Set-Cookie: refresh_token; httpOnly 처리 권장
+
+  CSP 전략
+  - 개발: CSP 비활성화 (NODE_ENV !== 'production')
+  - 운영: 엄격한 CSP 헤더 적용 (nonce 기반 권장)
+
+검증 결과
+---------
+  - 로그인 (alice@university.ac.kr / TestPass1!):
+    POST /v1/auth/login → 200 OK, JWT 발급, /home 이동, "Alice님" 표시 ✅
+  - 회원가입 (admin@university.ac.kr / admin1234):
+    POST /v1/auth/verify/send → 200 OK (OTP 발송)
+    Mailpit /api/v1/messages → 인증코드 976977 수신 확인
+    POST /v1/auth/verify/confirm → 200 OK
+    POST /v1/auth/signup → 201 Created
+    POST /v1/auth/login → 200 OK (자동 로그인)
+    /home 이동, "admin님" 표시 ✅
+  - Docker 4개 서비스 모두 정상 (redis/healthy, backend, frontend, mailpit/healthy) ✅
+
+다음 단계 (예정)
+----------------
+  - Phase 3: 팟 핵심 기능 (홈 피드, 카카오 지도, 팟 CRUD, 검색) 실제 구현
+
+================================================================================
+[2026-04-01] Phase 3 팟 CRUD 구현 및 인증 안정화
+================================================================================
+
+배경
+----
+- mgt.clearMarks is not a function 오류 반복 발생 (개발 중 거슬리는 노이즈)
+- /pods/[podId] 팟 상세 페이지 미구현 상태
+- 페이지 새로고침 시 accessToken 유실로 API 401 반복
+- params에 React.use() 잘못 사용으로 팟 상세 페이지 크래시
+
+작업 내용
+---------
+1. mgt.clearMarks 오류 수정
+   - 원인: frontend/package.json dev 스크립트의 --turbo (Turbopack) 플래그가
+     Next.js 14에서 Performance API 관련 내부 버그 유발
+   - 수정: "next dev --turbo" → "next dev" (webpack 사용)
+
+2. Pod 타입 시스템 전면 재정의
+   - PodDetail, PodMember, PodStatus, VehicleType 타입 백엔드 응답 스펙에 맞게 정비
+   - frontend/src/types/pod.ts 개편
+
+3. /pods/[podId] 팟 상세 페이지 구현
+   - 경로 정보 (출발지 → 도착지), 출발 시간, 인원/최대인원, 이동수단, 예상 비용
+   - 참여자 목록 (방장 뱃지, 매너점수)
+   - 상태 뱃지 (모집중/모집완료/이동중/완료/취소)
+   - 참여/탈퇴/채팅방 입장 버튼 (권한별 표시)
+
+4. /pods/create 팟 생성 폼 구현
+   - 출발지/도착지, 출발 시간, 최대 인원(2-6명), 이동수단, 메모 입력
+   - POST /v1/pods → 성공 시 /pods/[podId]로 이동
+
+5. params에서 React.use() 제거
+   - 원인: Next.js 14에서 params는 일반 객체이나 Promise<{podId}> 타입 선언 후
+     React.use()로 unwrap → "unsupported type passed to use()" 크래시
+   - 수정: params: { podId: string } 직접 구조 분해로 교체
+
+6. Zustand authStore persist 추가
+   - 원인: Zustand 기본 설정은 메모리 저장 → 페이지 새로고침 시 accessToken 유실
+     → 팟 상세/생성 등 인증 필요 API 401 오류 반복
+   - 수정: zustand/middleware persist + createJSONStorage(sessionStorage) 적용
+     (partialize: user, accessToken, isAuthenticated만 저장)
+   - 결과: 같은 브라우저 탭에서 새로고침해도 로그인 상태 유지
+
+설계 결정 사항
+--------------
+  Pod 상태 관리
+  - 서버 상태 (팟 목록/상세): useEffect + fetch (추후 React Query 마이그레이션 가능)
+  - 클라이언트 상태 (인증): Zustand + sessionStorage persist
+
+  Params 처리 방식
+  - Next.js 14 App Router: params는 동기 객체, React.use() 사용 불필요
+  - Next.js 15+에서 params가 Promise로 변경 예정이나 현재는 직접 구조 분해 사용
+
+  accessToken 저장 전략
+  - sessionStorage: 탭 단위 유지 (탭 닫으면 삭제), XSS 위험 있으나 httpOnly 미지원
+  - refreshToken: document.cookie (SameSite=Lax), Next.js 미들웨어가 Edge에서 읽음
+  - 장기적으로 백엔드 Set-Cookie: refresh_token; httpOnly 전환 권장
+
+검증 결과
+---------
+  - 로그인 (alice@university.ac.kr / TestPass1!) → /home → /pods/create → 팟 생성
+    POST /v1/pods → 201 Created, /pods/c9064ffa-446d-4cc9-97df-ea2a9f3aad00 이동 ✅
+  - /pods/[podId] 팟 상세: 경로/시간/인원/이동수단/참여자 정상 표시 ✅
+  - 새로고침 후 accessToken 유지, API 재호출 정상 ✅
+  - mgt.clearMarks 오류 사라짐 ✅
+
+다음 단계 (예정)
+----------------
+  - Phase 3 계속: /home 팟 목록 API 연동, /search 팟 검색 구현
+
+================================================================================
+[2026-04-01] Phase 3 팟 목록 API 연동 및 UX 개선
+================================================================================
+
+배경
+----
+- 팟을 만들었더니 인원이 2/2로 표시되고, 내 팟 목록에서 확인 불가
+- 팟 생성 폼의 날짜 입력이 영어(mm/dd/yyyy)로 표시
+- 팟 생성 버튼이 하단 탭과 겹쳐 가려짐
+- 버튼이 100% 너비라 데스크탑에서 보기 어색
+- manifest.json 404로 인한 Next.js dev 에러 오버레이 표시
+
+작업 내용
+---------
+1. 백엔드 GET /v1/pods/my 엔드포인트 추가
+   - 원인: "내 팟" 목록 조회 API가 없어 홈/팟 목록 페이지가 하드코딩 빈 상태
+   - 수정: backend/src/routes/pods.ts에 GET /my 라우트 추가
+   - 수정: backend/src/services/podService.ts에 getMyPods() 메서드 추가
+     (참여한 팟 + 만든 팟을 합쳐 최신순 정렬)
+
+2. /pods 팟 목록 페이지 API 연동
+   - 기존: 하드코딩 빈 상태 ("주변 팟이 없어요")
+   - 변경: fetchMyPods() API 호출, 실제 참여 팟 목록 표시
+   - 추가: 로딩/비어있음/목록 3가지 상태 처리, 상태 배지, 날짜·인원·이동수단 표시
+
+3. /home 홈 페이지 내 팟 API 연동
+   - 기존: 하드코딩 빈 상태
+   - 변경: fetchMyPods() API 호출, 최대 3개 표시, "전체보기 >" 버튼으로 /pods 연결
+
+4. 팟 생성 폼 날짜 한국어 표시
+   - 원인: datetime-local input은 브라우저 OS 언어 기준으로 표시
+     → 영어 시스템이면 mm/dd/yyyy hh:mm AM 형식
+   - 수정: 선택된 값을 toLocaleString('ko-KR') 로 즉시 한국어 미리보기 표시
+     (예: "2026년 4월 1일 수 오전 02:10")
+   - 추가: mounted 상태 체크로 서버/클라이언트 하이드레이션 불일치 방지
+
+5. 팟 생성 버튼 UX 개선
+   - 기존: fixed bottom-16 left-1/2 -translate-x-1/2 + max-w-mobile → 정렬 어긋남
+   - 변경: fixed bottom-16 left-0 right-0 mx-auto max-w-mobile → 정확한 중앙 정렬
+   - 결과: 하단 탭(h-16) 바로 위에 위치, 데스크탑에서 최대 너비 제한
+
+6. manifest.json 생성
+   - 원인: frontend/public/manifest.json 파일 없어 /manifest.json 404
+   - 수정: manifest.json 신규 생성 (name, icons, display, theme_color 등)
+   - 결과: Next.js dev 에러 오버레이 ("1 error") 제거
+
+설계 결정 사항
+--------------
+  내 팟 범위
+  - getMyPods = 내가 만든 팟 + 내가 참여한 팟 합산 (중복 제거, 최신순)
+  - 홈 화면: 최대 3개만 미리보기, 전체는 /pods 페이지
+
+  날짜 미리보기 전략
+  - datetime-local input은 원시 값(yyyy-MM-ddTHH:mm) 유지 (폼 제출용)
+  - 별도 <p> 태그에 한국어 포맷으로 실시간 표시 (UX용)
+  - mounted 플래그로 SSR/CSR 불일치 방지
+
+검증 결과
+---------
+  - /home "내 팟": 실제 API 연동, "한양대학교 → 강남역" 팟 2개 표시 ✅
+  - /pods "내 팟": 전체 목록 표시 (모집 중·완료 배지 포함) ✅
+  - /pods/create 날짜 미리보기: "2026년 4월 1일 수 오전 02:10" 한국어 표시 ✅
+  - 팟 생성 버튼: 하단 탭 위에 정확히 위치, 데스크탑 너비 제한 적용 ✅
+  - dev 에러 오버레이 완전 제거 ✅
+
+다음 단계 (예정)
+----------------
+  - Phase 3 계속: /search 팟 검색 구현
+  - Phase 4: /chat 채팅 (WebSocket) 구현
