@@ -1,0 +1,16 @@
+FROM node:20-alpine
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+# 소스는 볼륨 마운트로 연결됨. 설정 파일만 미리 복사.
+COPY next.config.mjs tailwind.config.ts tsconfig.json postcss.config.mjs ./
+
+ENV NODE_ENV=development
+# macOS Docker Desktop 파일 이벤트 미수신 문제 → 폴링으로 hot-reload 보장
+ENV WATCHPACK_POLLING=true
+
+EXPOSE 3001
+
+CMD ["npm", "run", "dev:docker"]
