@@ -14,6 +14,9 @@ const router = Router();
 // 모든 팟 엔드포인트는 인증 필요
 router.use(authenticateToken);
 
+// GET /v1/pods/my — 반드시 /:podId 앞에 선언
+router.get('/my', podController.getMyPods);
+
 // GET /v1/pods/search — 반드시 /:podId 앞에 선언
 router.get('/search', searchPodsValidation, podController.searchPods);
 

@@ -541,3 +541,46 @@ export const updatePodStatus = async (
     status: result.rows[0].status as PodStatus,
   };
 };
+
+/**
+ * 내 팟 목록 조회 (내가 만들었거나 참여 중인 팟)
+ */
+export const getMyPods = async (userId: string): Promise<PodSummary[]> => {
+  const result = await query<PodRow>(
+    `SELECT
+       p.pod_id,
+       p.departure_place_name,
+       ST_Y(p.departure_location::geometry) AS departure_lat,
+       ST_X(p.departure_location::geometry) AS departure_lng,
+       p.arrival_place_name,
+       ST_Y(p.arrival_location::geometry) AS arrival_lat,
+       ST_X(p.arrival_location::geometry) AS arrival_lng,
+       p.departure_time,
+       p.max_participants,
+       p.current_participants,
+       p.vehicle_type,
+       p.estimated_cost,
+       p.cost_per_person,
+       p.status,
+       p.created_at,
+       0 AS distance,
+       u.user_id            AS creator_id,
+       u.nickname           AS creator_nickname,
+       u.verification_badge AS creator_verification_badge
+     FROM pods p
+     JOIN users u ON p.creator_id = u.user_id
+     WHERE p.status NOT IN ('cancelled', 'completed')
+       AND (
+         p.creator_id = $1
+         OR EXISTS (
+           SELECT 1 FROM pod_participants pp
+           WHERE pp.pod_id = p.pod_id AND pp.user_id = $1
+         )
+       )
+     ORDER BY p.departure_time ASC
+     LIMIT 10`,
+    [userId]
+  );
+
+  return result.rows.map(toPodSummary);
+};

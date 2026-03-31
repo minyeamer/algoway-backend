@@ -5,6 +5,23 @@ import { PAGINATION } from '../config/constants';
 import type { AuthenticatedRequest, PodStatus } from '../types';
 
 /**
+ * 내 팟 목록 조회
+ * GET /v1/pods/my
+ */
+export const getMyPods = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const result = await podService.getMyPods(req.user!.userId);
+    successResponse(res, result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * 팟 생성
  * POST /v1/pods
  */
