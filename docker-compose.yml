@@ -23,7 +23,7 @@ services:
   # 백엔드
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: algoway-backend
     env_file:
@@ -33,6 +33,24 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - algoway-network
+    restart: unless-stopped
+
+  # 프론트엔드
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-http://localhost:3000}
+        NEXT_PUBLIC_KAKAO_MAP_KEY: ${NEXT_PUBLIC_KAKAO_MAP_KEY}
+    container_name: algoway-frontend
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    depends_on:
+      - backend
     networks:
       - algoway-network
     restart: unless-stopped

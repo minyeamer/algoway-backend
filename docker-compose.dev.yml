@@ -3,14 +3,14 @@ version: '3.9'
 services:
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./src:/app/src                    # Hot-reload를 위한 소스 마운트
-      - ./server.ts:/app/server.ts
-      - ./tsconfig.json:/app/tsconfig.json
-      - ./package.json:/app/package.json
-      - ./public:/app/public              # 테스트 UI 등 정적 파일
+      - ./backend/src:/app/src            # Hot-reload를 위한 소스 마운트
+      - ./backend/server.ts:/app/server.ts
+      - ./backend/tsconfig.json:/app/tsconfig.json
+      - ./backend/package.json:/app/package.json
+      - ./backend/public:/app/public      # 테스트 UI 등 정적 파일
       - /app/node_modules                 # node_modules는 컨테이너 내부 것 사용
     environment:
       NODE_ENV: development
@@ -23,6 +23,35 @@ services:
     command: npm run dev                  # ts-node-dev 실행
     depends_on:
       - mailpit
+
+  # 프론트엔드
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: algoway-frontend
+    volumes:
+      - ./frontend/src:/app/src                                   # Hot-reload를 위한 소스 마운트
+      - ./frontend/public:/app/public
+      - ./frontend/next.config.mjs:/app/next.config.mjs           # 설정 변경 즉시 반영
+      - ./frontend/tailwind.config.ts:/app/tailwind.config.ts
+      - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
+      - /app/node_modules                                         # node_modules는 컨테이너 내부 것 사용
+      - /app/.next                                                # .next 빌드 캐시는 컨테이너 내부 것 사용
+    env_file:
+      - frontend/.env.local               # NEXT_PUBLIC_* 키 로드
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+      NEXT_PUBLIC_API_URL: http://localhost:3000
+      NEXT_PUBLIC_WS_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - algoway-network
+    restart: unless-stopped
 
   # 개발용 메일 캐처 (인터넷 불필요)
   mailpit:
